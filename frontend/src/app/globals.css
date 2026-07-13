@@ -1,0 +1,163 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 248 250 255;
+  --foreground: 15 23 42;
+}
+
+/* Bump the root font-size so every rem-based size (Tailwind text + spacing)
+   scales up proportionally — larger, clearer text without breaking layout. */
+html {
+  font-size: 17px;
+}
+
+html,
+body {
+  height: 100%;
+  color: rgb(var(--foreground));
+  background: rgb(var(--background));
+}
+
+/* Subtle radial glow for hero backgrounds */
+.bg-glow-radial {
+  background-image:
+    radial-gradient(1200px 800px at 10% -10%, rgba(14, 165, 233, 0.16), transparent 40%),
+    radial-gradient(800px 600px at 100% 100%, rgba(56, 189, 248, 0.14), transparent 45%),
+    linear-gradient(180deg, rgba(240, 249, 255, 0.6), rgba(255, 255, 255, 1));
+}
+
+/* Mesh gradient for auth hero panels */
+.bg-mesh {
+  background-color: #0369a1;
+  background-image:
+    radial-gradient(at 20% 15%, rgba(56, 189, 248, 0.65) 0%, transparent 45%),
+    radial-gradient(at 80% 20%, rgba(125, 211, 252, 0.55) 0%, transparent 40%),
+    radial-gradient(at 30% 90%, rgba(14, 165, 233, 0.8) 0%, transparent 55%),
+    radial-gradient(at 90% 85%, rgba(2, 132, 199, 0.7) 0%, transparent 50%);
+}
+
+/* Grid pattern overlay for depth */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ---- Toast notification motion (Minimal style) ---- */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(38px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateX(46px) scale(0.95); }
+}
+@keyframes toast-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes toast-draw { to { stroke-dashoffset: 0; } }
+@keyframes toast-pop {
+  0%   { opacity: 0; transform: scale(0.4); }
+  60%  { transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.toast-in  { animation: toast-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.toast-out { animation: toast-out 0.34s cubic-bezier(0.4, 0, 1, 1) forwards; }
+.toast-pop { animation: toast-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.toast-progress { transform-origin: left; animation: toast-progress linear forwards; }
+.toast-draw {
+  stroke-dasharray: var(--dash);
+  stroke-dashoffset: var(--dash);
+  animation: toast-draw 0.5s 0.12s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+.toast-draw.toast-draw-2 { animation-delay: 0.42s; animation-duration: 0.32s; }
+@media (prefers-reduced-motion: reduce) {
+  .toast-in, .toast-out, .toast-pop, .toast-progress { animation: none !important; }
+  .toast-draw { animation: none !important; stroke-dashoffset: 0 !important; }
+}
+
+@layer components {
+  .input {
+    @apply block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm
+           bg-white text-slate-900 placeholder:text-slate-400
+           focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500
+           transition;
+  }
+  .card {
+    @apply bg-white border border-slate-200 rounded-xl;
+  }
+  .card-glow {
+    @apply bg-white border border-slate-200 rounded-xl
+           shadow-[0_10px_40px_-10px_rgba(14,165,233,0.15)]
+           hover:shadow-[0_20px_50px_-15px_rgba(14,165,233,0.25)]
+           transition-shadow;
+  }
+  .glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/50 rounded-xl;
+  }
+  .btn-primary {
+    @apply bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-medium
+           px-4 py-2 rounded-lg text-sm transition-all
+           shadow-sm hover:shadow-md hover:shadow-brand-500/30;
+  }
+  .btn-ghost {
+    @apply border border-slate-300 hover:border-brand-500 hover:text-brand-700
+           text-slate-700 px-4 py-2 rounded-lg text-sm transition-colors;
+  }
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-brand-700;
+  }
+}
+
+@layer utilities {
+  /* Slim, rounded scrollbar for internal scroll areas (e.g. activity feed) */
+  .activity-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(203 213 225) transparent;
+  }
+  .activity-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .activity-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .activity-scroll::-webkit-scrollbar-thumb {
+    background: rgb(203 213 225);
+    border-radius: 9999px;
+  }
+  .activity-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgb(148 163 184);
+  }
+
+  .animate-shimmer {
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .animate-float {
+    animation: float 8s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-12px); }
+  }
+
+  /* Equalizer / "music" loading bars — each bar gets a staggered animation-delay */
+  .animate-eq {
+    height: 100%;
+    transform-origin: bottom;
+    animation: eq 1s ease-in-out infinite;
+  }
+  @keyframes eq {
+    0%, 100% { transform: scaleY(0.35); }
+    50% { transform: scaleY(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-eq { animation: none; transform: scaleY(0.7); }
+  }
+}

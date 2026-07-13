@@ -1,0 +1,86 @@
+
+> project-document-frontend@0.1.0 dev
+> next dev -p 3000 --experimental-https
+
+ ⚠ Self-signed certificates are currently an experimental feature, use with caution.
+   Attempting to generate self signed certificate. This may prompt for your password
+   CA Root certificate created in C:\Users\thakorn.w\AppData\Local\mkcert
+   Certificates created in D:\2.Project\Document ES\frontend\certificates
+  ▲ Next.js 14.2.35
+  - Local:        https://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 3.4s
+ ○ Compiling /login ...
+ ⨯ ./src/app/login/page.tsx
+Error: 
+  [31mx[0m Unexpected token `div`. Expected jsx identifier
+    ,-[[36;1;4mD:\2.Project\Document ES\frontend\src\app\login\page.tsx[0m:73:1]
+ [2m73[0m |   }
+ [2m74[0m | 
+ [2m75[0m |   return (
+ [2m76[0m |     <div className="min-h-screen grid lg:grid-cols-[1.1fr_1fr]">
+    : [31;1m     ^^^[0m
+ [2m77[0m |       {/* Left panel — Brand hero */}
+ [2m78[0m |       <aside className="relative overflow-hidden bg-mesh text-white hidden lg:flex flex-col justify-between p-12">
+ [2m79[0m |         <div className="absolute inset-0 bg-grid opacity-40 pointer-events-none" />
+    `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/login/page.tsx
+ ⨯ ./src/app/login/page.tsx
+Error: 
+  [31mx[0m Unexpected token `div`. Expected jsx identifier
+    ,-[[36;1;4mD:\2.Project\Document ES\frontend\src\app\login\page.tsx[0m:73:1]
+ [2m73[0m |   }
+ [2m74[0m | 
+ [2m75[0m |   return (
+ [2m76[0m |     <div className="min-h-screen grid lg:grid-cols-[1.1fr_1fr]">
+    : [31;1m     ^^^[0m
+ [2m77[0m |       {/* Left panel — Brand hero */}
+ [2m78[0m |       <aside className="relative overflow-hidden bg-mesh text-white hidden lg:flex flex-col justify-between p-12">
+ [2m79[0m |         <div className="absolute inset-0 bg-grid opacity-40 pointer-events-none" />
+    `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/login/page.tsx
+ ⨯ ./src/app/login/page.tsx
+Error: 
+  [31mx[0m Unexpected token `div`. Expected jsx identifier
+    ,-[[36;1;4mD:\2.Project\Document ES\frontend\src\app\login\page.tsx[0m:73:1]
+ [2m73[0m |   }
+ [2m74[0m | 
+ [2m75[0m |   return (
+ [2m76[0m |     <div className="min-h-screen grid lg:grid-cols-[1.1fr_1fr]">
+    : [31;1m     ^^^[0m
+ [2m77[0m |       {/* Left panel — Brand hero */}
+ [2m78[0m |       <aside className="relative overflow-hidden bg-mesh text-white hidden lg:flex flex-col justify-between p-12">
+ [2m79[0m |         <div className="absolute inset-0 bg-grid opacity-40 pointer-events-none" />
+    `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/login/page.tsx
+ GET /login 500 in 1651ms
+ GET /login 500 in 20ms
+ GET /login 500 in 11ms
+(node:13784) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ✓ Compiled /_error in 7.1s (1298 modules)
+ GET /login 200 in 52ms
+ GET /login 200 in 41ms
+ GET /login 404 in 36ms
+ GET /login 404 in 80ms
+ ⚠ Cross origin request detected from 10.51.192.198 to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+ GET /document/login 404 in 63ms
+[?25h

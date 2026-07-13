@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS refresh_tokens;
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS acknowledgements;
+DROP TABLE IF EXISTS download_logs;
+DROP TABLE IF EXISTS document_recipients;
+DROP TABLE IF EXISTS document_versions;
+DROP TABLE IF EXISTS documents;
+DROP TABLE IF EXISTS document_types;
+DROP TABLE IF EXISTS user_departments;
+DROP TABLE IF EXISTS user_roles;
+DROP TABLE IF EXISTS departments;
+DROP TABLE IF EXISTS users;

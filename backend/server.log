@@ -1,0 +1,99 @@
+2026/07/13 09:04:51 database connected
+2026/07/13 09:04:51 migrations up to date
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /healthz                  --> main.main.Health.func3 (5 handlers)
+[GIN-debug] GET    /uploads/avatars/*filepath --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (5 handlers)
+[GIN-debug] HEAD   /uploads/avatars/*filepath --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (5 handlers)
+[GIN-debug] GET    /api/v1/notifications/stream --> project-document/backend/handlers.(*NotifHandler).Stream-fm (5 handlers)
+[GIN-debug] POST   /api/v1/auth/login        --> project-document/backend/handlers.(*AuthHandler).Login-fm (6 handlers)
+[GIN-debug] POST   /api/v1/auth/refresh      --> project-document/backend/handlers.(*AuthHandler).Refresh-fm (6 handlers)
+[GIN-debug] POST   /api/v1/auth/azure/exchange --> project-document/backend/handlers.(*AuthHandler).AzureExchange-fm (6 handlers)
+[GIN-debug] GET    /api/v1/auth/azure/config --> project-document/backend/handlers.(*AuthHandler).AzureConfig-fm (5 handlers)
+[GIN-debug] GET    /api/v1/auth/methods      --> project-document/backend/handlers.(*AuthHandler).AuthMethods-fm (5 handlers)
+[GIN-debug] POST   /api/v1/auth/logout       --> project-document/backend/handlers.(*AuthHandler).Logout-fm (7 handlers)
+[GIN-debug] GET    /api/v1/auth/me           --> project-document/backend/handlers.(*AuthHandler).Me-fm (7 handlers)
+[GIN-debug] POST   /api/v1/documents         --> project-document/backend/handlers.(*DocumentHandler).Create-fm (7 handlers)
+[GIN-debug] GET    /api/v1/documents         --> project-document/backend/handlers.(*DocumentHandler).List-fm (7 handlers)
+[GIN-debug] GET    /api/v1/documents/:id     --> project-document/backend/handlers.(*DocumentHandler).Detail-fm (7 handlers)
+[GIN-debug] PATCH  /api/v1/documents/:id     --> project-document/backend/handlers.(*DocumentHandler).Update-fm (7 handlers)
+[GIN-debug] DELETE /api/v1/documents/:id     --> project-document/backend/handlers.(*DocumentHandler).Delete-fm (7 handlers)
+[GIN-debug] POST   /api/v1/documents/:id/versions --> project-document/backend/handlers.(*DocumentHandler).AddVersions-fm (7 handlers)
+[GIN-debug] GET    /api/v1/documents/:id/versions/:versionId/download --> project-document/backend/handlers.(*DocumentHandler).Download-fm (7 handlers)
+[GIN-debug] DELETE /api/v1/documents/:id/versions/:versionId --> project-document/backend/handlers.(*DocumentHandler).DeleteVersion-fm (7 handlers)
+[GIN-debug] POST   /api/v1/documents/:id/acknowledge --> project-document/backend/handlers.(*DocumentHandler).Acknowledge-fm (7 handlers)
+[GIN-debug] DELETE /api/v1/documents/:id/acknowledge --> project-document/backend/handlers.(*DocumentHandler).Unacknowledge-fm (7 handlers)
+[GIN-debug] GET    /api/v1/departments       --> project-document/backend/handlers.(*MasterHandler).ListDepartments-fm (7 handlers)
+[GIN-debug] GET    /api/v1/document-types    --> project-document/backend/handlers.(*MasterHandler).ListDocumentTypes-fm (7 handlers)
+[GIN-debug] GET    /api/v1/users             --> project-document/backend/handlers.(*MasterHandler).ListUsers-fm (7 handlers)
+[GIN-debug] GET    /api/v1/settings          --> project-document/backend/handlers.(*SettingsHandler).Get-fm (7 handlers)
+[GIN-debug] PATCH  /api/v1/settings          --> project-document/backend/handlers.(*SettingsHandler).Patch-fm (7 handlers)
+[GIN-debug] GET    /api/v1/admin/users       --> project-document/backend/handlers.(*UserAdminHandler).List-fm (7 handlers)
+[GIN-debug] PATCH  /api/v1/admin/users/:id   --> project-document/backend/handlers.(*UserAdminHandler).Patch-fm (7 handlers)
+[GIN-debug] DELETE /api/v1/admin/users/:id   --> project-document/backend/handlers.(*UserAdminHandler).Delete-fm (7 handlers)
+[GIN-debug] POST   /api/v1/users/:id/avatar  --> project-document/backend/handlers.(*AvatarHandler).Upload-fm (7 handlers)
+[GIN-debug] DELETE /api/v1/users/:id/avatar  --> project-document/backend/handlers.(*AvatarHandler).Delete-fm (7 handlers)
+[GIN-debug] GET    /api/v1/staff             --> project-document/backend/handlers.(*StaffHandler).List-fm (7 handlers)
+[GIN-debug] GET    /api/v1/admin/staff       --> project-document/backend/handlers.(*StaffHandler).ListAll-fm (7 handlers)
+[GIN-debug] POST   /api/v1/admin/staff       --> project-document/backend/handlers.(*StaffHandler).Create-fm (7 handlers)
+[GIN-debug] PATCH  /api/v1/admin/staff/:id   --> project-document/backend/handlers.(*StaffHandler).Update-fm (7 handlers)
+[GIN-debug] DELETE /api/v1/admin/staff/:id   --> project-document/backend/handlers.(*StaffHandler).Delete-fm (7 handlers)
+[GIN-debug] GET    /api/v1/companies         --> project-document/backend/handlers.(*CompanyHandler).List-fm (7 handlers)
+[GIN-debug] GET    /api/v1/admin/companies   --> project-document/backend/handlers.(*CompanyHandler).ListAll-fm (7 handlers)
+[GIN-debug] POST   /api/v1/admin/companies   --> project-document/backend/handlers.(*CompanyHandler).Create-fm (7 handlers)
+[GIN-debug] PATCH  /api/v1/admin/companies/:id --> project-document/backend/handlers.(*CompanyHandler).Update-fm (7 handlers)
+[GIN-debug] DELETE /api/v1/admin/companies/:id --> project-document/backend/handlers.(*CompanyHandler).Delete-fm (7 handlers)
+[GIN-debug] GET    /api/v1/notifications     --> project-document/backend/handlers.(*NotifHandler).List-fm (7 handlers)
+[GIN-debug] GET    /api/v1/notifications/unread-count --> project-document/backend/handlers.(*NotifHandler).UnreadCount-fm (7 handlers)
+[GIN-debug] POST   /api/v1/notifications/:id/read --> project-document/backend/handlers.(*NotifHandler).MarkRead-fm (7 handlers)
+[GIN-debug] POST   /api/v1/notifications/read-all --> project-document/backend/handlers.(*NotifHandler).MarkAllRead-fm (7 handlers)
+[GIN-debug] GET    /api/v1/dashboard         --> project-document/backend/handlers.(*DashboardHandler).Get-fm (7 handlers)
+[GIN-debug] GET    /api/v1/dashboard/daily   --> project-document/backend/handlers.(*DashboardHandler).Daily-fm (7 handlers)
+[GIN-debug] GET    /api/v1/positions         --> project-document/backend/handlers.(*MasterAdminHandler).ListPositions-fm (7 handlers)
+[GIN-debug] GET    /api/v1/admin/departments --> project-document/backend/handlers.(*MasterAdminHandler).ListDepartmentsAll-fm (7 handlers)
+[GIN-debug] POST   /api/v1/admin/departments --> project-document/backend/handlers.(*MasterAdminHandler).CreateDepartment-fm (7 handlers)
+[GIN-debug] PATCH  /api/v1/admin/departments/:id --> project-document/backend/handlers.(*MasterAdminHandler).UpdateDepartment-fm (7 handlers)
+[GIN-debug] DELETE /api/v1/admin/departments/:id --> project-document/backend/handlers.(*MasterAdminHandler).DeleteDepartment-fm (7 handlers)
+[GIN-debug] GET    /api/v1/admin/positions   --> project-document/backend/handlers.(*MasterAdminHandler).ListPositionsAll-fm (7 handlers)
+[GIN-debug] POST   /api/v1/admin/positions   --> project-document/backend/handlers.(*MasterAdminHandler).CreatePosition-fm (7 handlers)
+[GIN-debug] PATCH  /api/v1/admin/positions/:id --> project-document/backend/handlers.(*MasterAdminHandler).UpdatePosition-fm (7 handlers)
+[GIN-debug] DELETE /api/v1/admin/positions/:id --> project-document/backend/handlers.(*MasterAdminHandler).DeletePosition-fm (7 handlers)
+2026/07/13 09:04:51 server listening on :8080
+[GIN] 2026/07/13 - 09:04:57 | 200 |       3.031ms |       127.0.0.1 | GET      "/healthz"
+[GIN] 2026/07/13 - 09:04:57 | 200 |      2.0533ms |             ::1 | GET      "/healthz"
+[GIN] 2026/07/13 - 09:05:08 | 403 |     12.7881ms |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:08 | 403 |      1.5863ms |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:08 | 403 |      2.3898ms |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:08 | 403 |      2.3285ms |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:09 | 403 |      1.3627ms |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:09 | 403 |      2.1928ms |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:09 | 403 |      1.2409ms |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:09 | 403 |      1.7496ms |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:09 | 403 |      2.1506ms |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:09 | 403 |      3.4749ms |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:09 | 429 |            0s |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:10 | 429 |            0s |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:10 | 429 |       805.2µs |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:10 | 429 |            0s |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:10 | 403 |       1.524ms |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 09:05:10 | 429 |            0s |             ::1 | POST     "/api/v1/auth/login"
+[GIN] 2026/07/13 - 10:58:32 | 401 |      2.9432ms |             ::1 | GET      "/api/v1/dashboard"
+[GIN] 2026/07/13 - 10:58:32 | 401 |      5.1319ms |             ::1 | GET      "/api/v1/dashboard/daily?from=2026-07-07&to=2026-07-13"
+[GIN] 2026/07/13 - 10:58:32 | 401 |      1.1541ms |             ::1 | GET      "/api/v1/notifications/unread-count"
+[GIN] 2026/07/13 - 10:58:32 | 200 |     86.4014ms |             ::1 | POST     "/api/v1/auth/refresh"
+[GIN] 2026/07/13 - 10:58:33 | 200 |     37.2653ms |             ::1 | GET      "/api/v1/dashboard/daily?from=2026-07-07&to=2026-07-13"
+[GIN] 2026/07/13 - 10:58:33 | 200 |     62.0158ms |             ::1 | GET      "/api/v1/notifications/unread-count"
+[GIN] 2026/07/13 - 10:58:33 | 200 |     91.0569ms |             ::1 | GET      "/api/v1/dashboard"
+[GIN] 2026/07/13 - 10:58:46 | 200 |    13.398345s |             ::1 | GET      "/api/v1/notifications/stream?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJlNzY3ZGVhZC05NTFmLTQxYjQtYmY0Ny01YTg1OWQ2OWQ5NTciLCJ0eXAiOiJhY2Nlc3MiLCJpc3MiOiJwcm9qZWN0LWRvY3VtZW50Iiwic3ViIjoiZTc2N2RlYWQtOTUxZi00MWI0LWJmNDctNWE4NTlkNjlkOTU3IiwiZXhwIjoxNzgzOTE2MDEyLCJuYmYiOjE3ODM5MTUxMTIsImlhdCI6MTc4MzkxNTExMiwianRpIjoiNWM3MzI0YzUtNDg5Ni00MWNiLThiNGQtYzM1N2FiMDQ2YzhmIn0.zpJwZS0LcbVp3lKULnVGSgJEJaI37jS_tY5bXOhQEEQ"
+[GIN] 2026/07/13 - 10:58:50 | 200 |     40.9496ms |             ::1 | GET      "/api/v1/notifications/unread-count"
+[GIN] 2026/07/13 - 10:58:50 | 200 |     74.4355ms |             ::1 | GET      "/api/v1/dashboard/daily?from=2026-07-07&to=2026-07-13"
+[GIN] 2026/07/13 - 10:58:50 | 200 |     78.9653ms |             ::1 | GET      "/api/v1/dashboard"
+[GIN] 2026/07/13 - 10:58:50 | 200 |    154.0622ms |             ::1 | GET      "/api/v1/auth/me"
+[GIN] 2026/07/13 - 10:58:50 | 200 |     19.4111ms |             ::1 | GET      "/api/v1/settings"
+[GIN] 2026/07/13 - 11:09:59 | 200 |         11m8s |             ::1 | GET      "/api/v1/notifications/stream?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJlNzY3ZGVhZC05NTFmLTQxYjQtYmY0Ny01YTg1OWQ2OWQ5NTciLCJ0eXAiOiJhY2Nlc3MiLCJpc3MiOiJwcm9qZWN0LWRvY3VtZW50Iiwic3ViIjoiZTc2N2RlYWQtOTUxZi00MWI0LWJmNDctNWE4NTlkNjlkOTU3IiwiZXhwIjoxNzgzOTE2MDEyLCJuYmYiOjE3ODM5MTUxMTIsImlhdCI6MTc4MzkxNTExMiwianRpIjoiNWM3MzI0YzUtNDg5Ni00MWNiLThiNGQtYzM1N2FiMDQ2YzhmIn0.zpJwZS0LcbVp3lKULnVGSgJEJaI37jS_tY5bXOhQEEQ"
+[GIN] 2026/07/13 - 12:01:32 | 200 |         51m6s |             ::1 | GET      "/api/v1/notifications/stream?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJlNzY3ZGVhZC05NTFmLTQxYjQtYmY0Ny01YTg1OWQ2OWQ5NTciLCJ0eXAiOiJhY2Nlc3MiLCJpc3MiOiJwcm9qZWN0LWRvY3VtZW50Iiwic3ViIjoiZTc2N2RlYWQtOTUxZi00MWI0LWJmNDctNWE4NTlkNjlkOTU3IiwiZXhwIjoxNzgzOTE2MDEyLCJuYmYiOjE3ODM5MTUxMTIsImlhdCI6MTc4MzkxNTExMiwianRpIjoiNWM3MzI0YzUtNDg5Ni00MWNiLThiNGQtYzM1N2FiMDQ2YzhmIn0.zpJwZS0LcbVp3lKULnVGSgJEJaI37jS_tY5bXOhQEEQ"
+exit status 0xffffffff
