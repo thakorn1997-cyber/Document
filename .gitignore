@@ -11,4 +11,9 @@ out/
 *.exe
 *.exe~
 
+*.log
+*.tsbuildinfo
+
 backend/storage/documents/
+backend/storage/avatars/
+frontend/certificates/

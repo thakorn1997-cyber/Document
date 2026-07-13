@@ -4,7 +4,7 @@ services:
     container_name: pd_postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: documentes
     ports:
       - "5433:5432"
@@ -25,9 +25,11 @@ services:
     environment:
       APP_ENV: production
       APP_PORT: "8080"
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/documentes?sslmode=disable
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-change-me-in-prod-please-please}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me-in-prod-please-please}
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/documentes?sslmode=disable
+      # No insecure fallback: `docker compose up` fails fast unless real secrets
+      # are provided via env / .env (generate with `openssl rand -hex 32`).
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set (openssl rand -hex 32)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET must be set (openssl rand -hex 32)}
       JWT_ACCESS_TTL: 15m
       JWT_REFRESH_TTL: 168h
       STORAGE_DRIVER: local

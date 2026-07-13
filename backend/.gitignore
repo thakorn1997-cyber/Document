@@ -2,4 +2,6 @@
 *.exe
 *.exe~
 /storage/documents/
+/storage/avatars/
 /tmp/
+*.log

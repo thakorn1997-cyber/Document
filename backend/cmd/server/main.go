@@ -44,7 +44,16 @@ func main() {
 			log.Println("warning: APP_ENV=production but CORS_ALLOWED_ORIGINS is empty — cross-origin browser calls will be blocked (fine if the frontend proxies same-origin)")
 		}
 	}
-	r := gin.Default()
+	// gin.New (not Default): the default logger prints the full URL including
+	// the SSE ?access_token=... query — RedactedLogger scrubs it first.
+	r := gin.New()
+	r.Use(middleware.RedactedLogger(), gin.Recovery())
+	// Trust X-Forwarded-For only from the configured reverse proxy. With no
+	// proxy configured, ClientIP falls back to the socket address, so the
+	// per-IP rate limit can't be bypassed by spoofing the header.
+	if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		log.Fatalf("trusted proxies: %v", err)
+	}
 	r.Use(middleware.SecurityHeaders())
 	// Allow the private-LAN origin wildcard in dev only; production trusts the explicit allowlist.
 	r.Use(middleware.CORS(cfg.CORSAllowedOrigins, !isProd))

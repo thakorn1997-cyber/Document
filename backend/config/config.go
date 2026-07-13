@@ -26,6 +26,7 @@ type Config struct {
 	MaxUploadMB      int64
 
 	CORSAllowedOrigins []string
+	TrustedProxies     []string
 
 	AzureTenantID     string
 	AzureClientID     string
@@ -51,6 +52,7 @@ func Load() *Config {
 		MaxUploadMB:      parseInt("MAX_UPLOAD_MB", 20),
 
 		CORSAllowedOrigins: splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")),
+		TrustedProxies:     splitCSV(getEnv("TRUSTED_PROXIES", "")),
 
 		AzureTenantID:      getEnv("AZURE_TENANT_ID", ""),
 		AzureClientID:      getEnv("AZURE_CLIENT_ID", ""),
