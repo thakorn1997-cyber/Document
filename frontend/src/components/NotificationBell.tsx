@@ -318,5 +318,5 @@ function timeAgo(iso: string): string {
   if (hr < 24) return `${hr} ชั่วโมงที่แล้ว`;
   const d = Math.floor(hr / 24);
   if (d < 7) return `${d} วันที่แล้ว`;
-  return new Date(iso).toLocaleDateString("th-TH");
+  return new Date(iso).toLocaleDateString("th-TH-u-ca-gregory");
 }

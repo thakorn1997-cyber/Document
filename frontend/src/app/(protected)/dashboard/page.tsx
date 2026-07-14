@@ -27,7 +27,7 @@ export default function DashboardPage() {
     refetchInterval: 60_000,
   });
 
-  const today = new Date().toLocaleDateString("th-TH", {
+  const today = new Date().toLocaleDateString("th-TH-u-ca-gregory", {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -526,11 +526,11 @@ function sampleIndices(n: number, maxLabels: number): number[] {
 }
 
 function shortDay(iso: string): string {
-  return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  return new Date(iso).toLocaleDateString("th-TH-u-ca-gregory", { day: "numeric", month: "short" });
 }
 
 function fullDay(iso: string): string {
-  return new Date(iso).toLocaleDateString("th-TH", {
+  return new Date(iso).toLocaleDateString("th-TH-u-ca-gregory", {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -539,8 +539,8 @@ function fullDay(iso: string): string {
 }
 
 function fmtRange(from: string, to: string): string {
-  const f = new Date(from).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
-  const t = new Date(to).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+  const f = new Date(from).toLocaleDateString("th-TH-u-ca-gregory", { day: "numeric", month: "short" });
+  const t = new Date(to).toLocaleDateString("th-TH-u-ca-gregory", { day: "numeric", month: "short", year: "numeric" });
   return `${f} – ${t}`;
 }
 
@@ -776,7 +776,7 @@ function ActivityTimeline({
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("th-TH", {
+  return new Date(iso).toLocaleTimeString("th-TH-u-ca-gregory", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -791,7 +791,7 @@ function formatDay(iso: string): string {
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
   if (d.toDateString() === yesterday.toDateString()) return "เมื่อวาน";
-  return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  return d.toLocaleDateString("th-TH-u-ca-gregory", { day: "numeric", month: "short" });
 }
 
 function timeAgo(iso: string): string {
@@ -804,5 +804,5 @@ function timeAgo(iso: string): string {
   if (h < 24) return `${h} ชั่วโมงที่แล้ว`;
   const d = Math.floor(h / 24);
   if (d < 7) return `${d} วันที่แล้ว`;
-  return new Date(iso).toLocaleDateString("th-TH");
+  return new Date(iso).toLocaleDateString("th-TH-u-ca-gregory");
 }

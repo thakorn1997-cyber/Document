@@ -40,15 +40,21 @@ services:
       - "8080:8080"
     volumes:
       - pd_documents:/app/storage/documents
+      - pd_avatars:/app/storage/avatars
 
   frontend:
     build:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_BASE_URL: http://localhost:8080/api/v1
+        NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-}
+        # basePath/rewrites are baked at build time (next.config.mjs), so the
+        # backend origin for rewrites must be passed as a build arg too.
+        BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
     container_name: pd_frontend
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://localhost:8080/api/v1
     ports:
@@ -57,3 +63,4 @@ services:
 volumes:
   pd_pgdata:
   pd_documents:
+  pd_avatars:

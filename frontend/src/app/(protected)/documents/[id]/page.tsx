@@ -68,9 +68,9 @@ export default function DocumentDetailPage() {
     <div className="space-y-6">
       <Link
         href="/documents"
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-700"
+        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-slate-300 bg-white text-sm font-medium text-slate-600 shadow-sm hover:text-brand-700 hover:border-brand-400 hover:bg-brand-50 transition-colors"
       >
-        <ArrowLeft size={14} /> Documents List
+        <ArrowLeft size={15} /> กลับไปหน้ารายการเอกสาร
       </Link>
 
       <div className="card p-6 bg-gradient-to-br from-white to-brand-50/50">
@@ -81,7 +81,7 @@ export default function DocumentDetailPage() {
             <div className="flex items-center gap-3 mt-3 text-sm text-slate-600 flex-wrap">
               <StatusPill status={d.status} />
               <span className="text-slate-400">·</span>
-              <span>{new Date(d.created_at).toLocaleString("th-TH")}</span>
+              <span>{new Date(d.created_at).toLocaleString("th-TH-u-ca-gregory")}</span>
               {locked && (
                 <>
                   <span className="text-slate-400">·</span>
@@ -142,7 +142,7 @@ export default function DocumentDetailPage() {
             <InfoRow
               icon={Calendar}
               label="วันติดตั้ง"
-              value={d.install_date ? new Date(d.install_date).toLocaleDateString("th-TH") : "-"}
+              value={d.install_date ? new Date(d.install_date).toLocaleDateString("th-TH-u-ca-gregory") : "-"}
             />
           </div>
         </section>
@@ -192,7 +192,7 @@ export default function DocumentDetailPage() {
                     {(v.file_size_bytes / 1024).toFixed(1)} KB
                   </td>
                   <td className="px-5 py-3 text-slate-500 text-xs">
-                    {new Date(v.uploaded_at).toLocaleString("th-TH")}
+                    {new Date(v.uploaded_at).toLocaleString("th-TH-u-ca-gregory")}
                   </td>
                   <td className="px-5 py-3 text-right">
                     <button
@@ -256,7 +256,7 @@ export default function DocumentDetailPage() {
                     <KindBadge kind={a.version_kind} /> <span className="text-xs">v{a.version_no}</span>
                   </td>
                   <td className="px-5 py-3 text-slate-500 text-xs">
-                    {new Date(a.acknowledged_at).toLocaleString("th-TH")}
+                    {new Date(a.acknowledged_at).toLocaleString("th-TH-u-ca-gregory")}
                   </td>
                 </tr>
               ))}
@@ -359,7 +359,7 @@ function StatusBlock({
       </span>
       <div className="flex items-center gap-1.5 text-xs text-slate-500">
         <Calendar size={13} className="text-slate-400 shrink-0" />
-        <span>{date ? new Date(date).toLocaleDateString("th-TH") : "ยังไม่ระบุวันที่"}</span>
+        <span>{date ? new Date(date).toLocaleDateString("th-TH-u-ca-gregory") : "ยังไม่ระบุวันที่"}</span>
       </div>
     </div>
   );

@@ -33,7 +33,7 @@ type Column = {
 type DateRange = { from: string; to: string };
 
 const DASH = "—";
-const colDate = (v?: string | null) => (v ? new Date(v).toLocaleDateString("th-TH") : DASH);
+const colDate = (v?: string | null) => (v ? new Date(v).toLocaleDateString("th-TH-u-ca-gregory") : DASH);
 const colTs = (v?: string | null) => (v ? new Date(v).getTime() : 0);
 // Local calendar day as "YYYY-MM-DD" (matches <input type="date"> values, timezone-safe).
 const toDayStr = (v?: string | null) => {
@@ -651,7 +651,7 @@ function AckButton({
 }
 
 function fmtDate(date?: string | null) {
-  return date ? new Date(date).toLocaleDateString("th-TH") : "-";
+  return date ? new Date(date).toLocaleDateString("th-TH-u-ca-gregory") : "-";
 }
 
 function StatusBadge({ status }: { status?: string }) {
@@ -673,7 +673,7 @@ function TypeBadge({ type }: { type?: string }) {
   if (!type) return <span className="text-slate-300 text-xs">-</span>;
   const cls =
     {
-      Standard: "bg-slate-200 text-slate-700 border border-slate-300",
+      Standard: "bg-blue-100 text-blue-700 border border-blue-300",
       Modify: "bg-amber-100 text-amber-800 border border-amber-300",
       "Add-on": "bg-indigo-100 text-indigo-800 border border-indigo-300",
     }[type] ?? "bg-slate-200 text-slate-700 border border-slate-300";

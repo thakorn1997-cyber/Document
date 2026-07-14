@@ -7,3 +7,6 @@ dist
 next-env.d.ts
 
 certificates
+
+# logs (dev.log etc. — may contain tokens)
+*.log

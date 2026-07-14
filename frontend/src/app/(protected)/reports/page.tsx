@@ -22,7 +22,7 @@ type DateMode = "all" | "7" | "30" | "90" | "custom";
 type MenuKey = "view" | "status" | "date" | "export";
 
 function fmtDate(v?: string | null): string {
-  return v ? new Date(v).toLocaleDateString("th-TH") : DASH;
+  return v ? new Date(v).toLocaleDateString("th-TH-u-ca-gregory") : DASH;
 }
 function isoLocal(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -211,7 +211,7 @@ th{background:#eff4fe;font-weight:600}
 @media print{@page{size:landscape;margin:12mm}}
 </style></head><body>
 <h1>รายงานเอกสาร (${viewLabel})</h1>
-<p class="sub">ช่วงวันติดตั้ง: ${range} · ทั้งหมด ${rows.length} รายการ · พิมพ์เมื่อ ${new Date().toLocaleString("th-TH")}</p>
+<p class="sub">ช่วงวันติดตั้ง: ${range} · ทั้งหมด ${rows.length} รายการ · พิมพ์เมื่อ ${new Date().toLocaleString("th-TH-u-ca-gregory")}</p>
 <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
 <script>window.onload=function(){setTimeout(function(){window.print()},300)}</script>
 </body></html>`);

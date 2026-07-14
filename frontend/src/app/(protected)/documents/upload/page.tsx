@@ -17,6 +17,7 @@ import { documentApi, staffApi, companyApi } from "@/lib/api/endpoints";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { Tooltip } from "@/components/Tooltip";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +65,18 @@ export default function UploadPage() {
   const [uatDate, setUatDate] = useState("");
   const [uaiStatus, setUaiStatus] = useState<StatusValue>("");
   const [uaiDate, setUaiDate] = useState("");
+
+  // Business rule: Modify projects do not use UAI — lock the group and clear
+  // any value picked before the type was switched.
+  const uaiLocked = projectType === "Modify";
+  function onTypeChange(v: string) {
+    const t = v as ProjectType;
+    setProjectType(t);
+    if (t === "Modify") {
+      setUaiStatus("");
+      setUaiDate("");
+    }
+  }
 
   // Section 3: unified file list
   const [files, setFiles] = useState<File[]>([]);
@@ -169,12 +182,20 @@ export default function UploadPage() {
     <div className="max-w-6xl space-y-6">
       <form onSubmit={onSubmit} className="space-y-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <Link href="/documents" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-700">
-              <ArrowLeft size={14} /> Documents
-            </Link>
-            <h1 className="text-2xl font-semibold mt-2">อัปโหลดเอกสาร</h1>
-            <p className="text-sm text-slate-500 mt-1">กรอกข้อมูล Project และแนบไฟล์เอกสาร</p>
+          <div className="flex items-center gap-3">
+            <Tooltip label="กลับไปหน้ารายการเอกสาร">
+              <Link
+                href="/documents"
+                aria-label="กลับไปหน้ารายการเอกสาร"
+                className="w-10 h-10 rounded-full border border-slate-300 bg-white flex items-center justify-center text-slate-600 shadow-sm hover:text-brand-700 hover:border-brand-400 hover:bg-brand-50 transition-colors shrink-0"
+              >
+                <ArrowLeft size={18} />
+              </Link>
+            </Tooltip>
+            <div>
+              <h1 className="text-2xl font-semibold">อัปโหลดเอกสาร</h1>
+              <p className="text-sm text-slate-500 mt-1">กรอกข้อมูล Project และแนบไฟล์เอกสาร</p>
+            </div>
           </div>
           <div className="flex items-center gap-2.5 shrink-0">
             <button
@@ -208,7 +229,7 @@ export default function UploadPage() {
               <Field label="ประเภท (Type)" required>
                 <SearchableSelect
                   value={projectType}
-                  onChange={(v) => setProjectType(v as ProjectType)}
+                  onChange={onTypeChange}
                   options={PROJECT_TYPE_OPTIONS}
                   searchable={false}
                   allowClear={false}
@@ -289,6 +310,8 @@ export default function UploadPage() {
                   onStatus={setUaiStatus}
                   date={uaiDate}
                   onDate={setUaiDate}
+                  disabled={uaiLocked}
+                  disabledNote="ประเภท Modify ไม่ต้องระบุสถานะ UAI"
                 />
                 <StatusGroup
                   label="UAT"
@@ -444,12 +467,16 @@ function StatusGroup({
   onStatus,
   date,
   onDate,
+  disabled,
+  disabledNote,
 }: {
   label: string;
   status: StatusValue;
   onStatus: (s: StatusChoice) => void;
   date: string;
   onDate: (v: string) => void;
+  disabled?: boolean;
+  disabledNote?: string;
 }) {
   const OPTIONS: { value: StatusChoice; label: string; cls: string }[] = [
     { value: "Pending", label: "Pending", cls: "border-amber-300 text-amber-700 bg-amber-50" },
@@ -457,7 +484,7 @@ function StatusGroup({
     { value: "Failed", label: "Failed", cls: "border-rose-300 text-rose-700 bg-rose-50" },
   ];
   return (
-    <div className="space-y-3">
+    <div className={cn("space-y-3", disabled && "opacity-50")}>
       <div className="text-sm font-semibold text-slate-700">{label}</div>
 
       <div>
@@ -469,9 +496,13 @@ function StatusGroup({
               <button
                 key={opt.value}
                 type="button"
+                disabled={disabled}
                 onClick={() => onStatus(opt.value)}
-                className={`px-3 py-1.5 rounded-lg border text-xs font-medium ${active ? "border-brand-600 bg-brand-600 text-white" : "bg-white " + opt.cls
-                  }`}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg border text-xs font-medium",
+                  active ? "border-brand-600 bg-brand-600 text-white" : "bg-white " + opt.cls,
+                  disabled && "cursor-not-allowed"
+                )}
               >
                 {opt.label}
               </button>
@@ -482,8 +513,20 @@ function StatusGroup({
 
       <div>
         <div className="text-xs text-slate-500 mb-1.5">วันที่ {label}</div>
-        <input type="date" className="input" value={date} onChange={(e) => onDate(e.target.value)} />
+        <input
+          type="date"
+          className="input disabled:cursor-not-allowed disabled:bg-slate-50"
+          value={date}
+          disabled={disabled}
+          onChange={(e) => onDate(e.target.value)}
+        />
       </div>
+
+      {disabled && disabledNote && (
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+          {disabledNote}
+        </div>
+      )}
     </div>
   );
 }
