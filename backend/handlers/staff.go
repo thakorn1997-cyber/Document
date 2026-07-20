@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -179,16 +180,32 @@ func (h *StaffHandler) Update(c *gin.Context) {
 	OK(c, gin.H{"ok": true})
 }
 
+// Delete hard-removes a staff member, blocked while they are still set as the
+// owner_project_staff of any document (FK is NO ACTION, so a raw delete would
+// error anyway — we surface a clear message instead).
 func (h *StaffHandler) Delete(c *gin.Context) {
 	if !isAdmin(c) {
 		Err(c, http.StatusForbidden, "FORBIDDEN", "admin only")
 		return
 	}
 	id := c.Param("id")
-	_, err := h.DB.Exec(c.Request.Context(),
-		`UPDATE staff_master SET is_active = FALSE, updated_at = NOW() WHERE id = $1`, id)
+	ctx := c.Request.Context()
+
+	var used int
+	_ = h.DB.QueryRow(ctx,
+		`SELECT COUNT(*) FROM documents WHERE owner_project_staff_id = $1`, id).Scan(&used)
+	if used > 0 {
+		Err(c, http.StatusConflict, "IN_USE",
+			fmt.Sprintf("ลบไม่ได้ พนักงานนี้ถูกใช้เป็นผู้รับผิดชอบใน %d เอกสาร", used))
+		return
+	}
+	tag, err := h.DB.Exec(ctx, `DELETE FROM staff_master WHERE id = $1`, id)
 	if err != nil {
 		Err(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		Err(c, http.StatusNotFound, "NOT_FOUND", "staff not found")
 		return
 	}
 	OK(c, gin.H{"ok": true})

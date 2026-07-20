@@ -21,6 +21,7 @@ import { tokenStore } from "@/lib/auth/token";
 import { AvatarMenu } from "@/components/AvatarMenu";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Logo } from "@/components/Logo";
+import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/lib/utils";
 
 type NavItem = { href: string; label: string; icon: React.ElementType; key: string; adminOnly?: boolean };
@@ -140,14 +141,19 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         )}
       >
         {/* Desktop collapse toggle (floats on the sidebar edge) */}
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          className="hidden lg:flex absolute -right-3 top-20 z-50 w-6 h-6 rounded-full border border-slate-200 bg-white shadow-md items-center justify-center text-slate-500 hover:text-brand-700 hover:border-brand-300 transition-colors"
-          title={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
-          aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
+        <Tooltip
+          label={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
+          placement="right"
+          className="hidden lg:flex absolute -right-3 top-20 z-50"
         >
-          <ChevronLeft size={14} className={cn("transition-transform duration-300 ease-in-out", collapsed && "rotate-180")} />
-        </button>
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            className="w-6 h-6 rounded-full border border-slate-200 bg-white shadow-md flex items-center justify-center text-slate-500 hover:text-brand-700 hover:border-brand-300 transition-colors"
+            aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
+          >
+            <ChevronLeft size={14} className={cn("transition-transform duration-300 ease-in-out", collapsed && "rotate-180")} />
+          </button>
+        </Tooltip>
 
         {/* Brand / header */}
         <div
@@ -262,7 +268,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
           </div>
 
           {/* Floating glass toolbar: notifications · profile */}
-          <div className="ml-auto flex items-center gap-1 backdrop-blur px-1.5 py-1">
+          <div className="ml-auto flex items-center gap-1 px-1.5 py-1">
             <NotificationBell />
             <div className="w-px h-6 bg-slate-200 mx-0.5 hidden sm:block" />
             <AvatarMenu

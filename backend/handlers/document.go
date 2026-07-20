@@ -370,6 +370,7 @@ type documentListItem struct {
 
 	OwnerProjectName *string `json:"owner_project_name,omitempty"`
 	OwnerUserName    string  `json:"owner_user_name,omitempty"`
+	OwnerUserID      string  `json:"owner_user_id,omitempty"`
 
 	UATVersionID    *string `json:"uat_version_id,omitempty"`
 	UATOriginalName *string `json:"uat_original_name,omitempty"`
@@ -414,6 +415,7 @@ func (h *DocumentHandler) List(c *gin.Context) {
 		       d.created_at,
 		       sm.full_name AS owner_project_name,
 		       ou.full_name AS owner_user_name,
+		       COALESCE(d.owner_user_id::text,'') AS owner_user_id,
 		       uat.id::text AS uat_version_id, uat.original_file_name AS uat_original_name,
 		       uai.id::text AS uai_version_id, uai.original_file_name AS uai_original_name,
 		       COALESCE(d.project_type, 'Standard'),
@@ -463,7 +465,7 @@ func (h *DocumentHandler) List(c *gin.Context) {
 			&it.CompanyName, &it.WorkOrder,
 			&it.InstallDate, &it.UATStatus, &it.UATDate, &it.UAIStatus, &it.UAIDate,
 			&it.CreatedAt,
-			&it.OwnerProjectName, &ownerUserName,
+			&it.OwnerProjectName, &ownerUserName, &it.OwnerUserID,
 			&it.UATVersionID, &it.UATOriginalName,
 			&it.UAIVersionID, &it.UAIOriginalName,
 			&it.ProjectType, &it.FilesCount, &filesJSON,

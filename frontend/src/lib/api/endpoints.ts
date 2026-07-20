@@ -88,6 +88,7 @@ export type DocumentSummary = {
   created_at: string;
   owner_project_name?: string | null;
   owner_user_name?: string;
+  owner_user_id?: string;
   uat_version_id?: string | null;
   uat_original_name?: string | null;
   uai_version_id?: string | null;
@@ -192,11 +193,31 @@ export type DocumentUpdate = {
   note?: string;
 };
 
+export type ListMeta = { total: number; page: number; size: number; server_date?: string };
+
 export const documentApi = {
   list: (params?: Record<string, string | number>) =>
     api
-      .get<{ data: DocumentSummary[]; meta: { total: number; page: number; size: number } }>("/documents", { params })
+      .get<{ data: DocumentSummary[]; meta: ListMeta }>("/documents", { params })
       .then((r) => r.data),
+  /**
+   * Fetch EVERY document (the backend caps size at 500/request, so page until
+   * meta.total is covered). Use this for the shared ["documents","all"] cache —
+   * plain list({size:500}) silently truncates once the table passes 500 rows,
+   * which corrupts client-side filters/KPIs/exports. Returns the same
+   * {data, meta} shape as list() so cache consumers are unaffected.
+   */
+  listAll: async () => {
+    const first = await documentApi.list({ size: 500, page: 1 });
+    const total = first.meta?.total ?? first.data.length;
+    let data = first.data;
+    for (let page = 2; data.length < total; page++) {
+      const next = await documentApi.list({ size: 500, page });
+      if (next.data.length === 0) break;
+      data = data.concat(next.data);
+    }
+    return { ...first, data };
+  },
   detail: (id: string) => api.get<{ data: DocumentDetail }>(`/documents/${id}`).then((r) => r.data.data),
   create: (form: FormData) =>
     api.post("/documents", form, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data.data),

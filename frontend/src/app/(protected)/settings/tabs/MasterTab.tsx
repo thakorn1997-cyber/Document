@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
@@ -29,6 +30,7 @@ import {
 } from "@/lib/api/endpoints";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
+import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/lib/utils";
 
 type SubTab = "departments" | "positions" | "staff" | "companies";
@@ -109,6 +111,7 @@ function SubTabButton({
 function DepartmentPanel() {
   const qc = useQueryClient();
   const confirm = useConfirm();
+  const toast = useToast();
   const q = useQuery({ queryKey: ["admin-departments"], queryFn: departmentAdminApi.listAll });
   const [editing, setEditing] = useState<Department | "new" | null>(null);
 
@@ -117,14 +120,21 @@ function DepartmentPanel() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-departments"] });
       qc.invalidateQueries({ queryKey: ["departments"] });
+      toast.success("ลบแผนกแล้ว");
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+          ?.message ?? "ลบไม่สำเร็จ";
+      toast.error(msg);
     },
   });
 
   async function onDelete(d: Department) {
     const ok = await confirm({
       title: "ยืนยันการลบแผนก",
-      message: `ปิดใช้งานแผนก "${d.name_th}"?\nจะไม่แสดงใน dropdown แต่ข้อมูลเดิมยังอยู่`,
-      confirmLabel: "ปิดใช้งาน",
+      message: `ลบแผนก "${d.name_th}" ออกจากระบบถาวร?\n\nระบบจะตรวจสอบก่อน — ถ้าแผนกนี้ถูกใช้งานอยู่ (มีเอกสาร/พนักงาน/ผู้ใช้) จะลบไม่ได้`,
+      confirmLabel: "ลบถาวร",
       tone: "danger",
     });
     if (ok) delMut.mutate(d.id);
@@ -173,21 +183,22 @@ function DepartmentPanel() {
                 </td>
                 <td className="px-4 py-2 text-right">
                   <div className="inline-flex items-center gap-1">
-                    <button
-                      onClick={() => setEditing(d)}
-                      className="text-brand-700 hover:bg-brand-50 p-1.5 rounded"
-                      title="แก้ไข"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => onDelete(d)}
-                      disabled={!d.is_active}
-                      className="text-rose-600 hover:bg-rose-50 disabled:text-slate-300 disabled:bg-transparent p-1.5 rounded"
-                      title="ปิดใช้งาน"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <Tooltip label="แก้ไข">
+                      <button
+                        onClick={() => setEditing(d)}
+                        className="text-brand-700 hover:bg-brand-50 p-1.5 rounded"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip label="ลบ">
+                      <button
+                        onClick={() => onDelete(d)}
+                        className="text-rose-600 hover:bg-rose-50 p-1.5 rounded"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </Tooltip>
                   </div>
                 </td>
               </tr>
@@ -284,7 +295,7 @@ function DepartmentModal({
           checked={isActive}
           onChange={(e) => setIsActive(e.target.checked)}
         />
-        เปิดใช้งาน (แสดงใน dropdown)
+        Active
       </label>
     </FormModal>
   );
@@ -295,6 +306,7 @@ function DepartmentModal({
 function PositionPanel() {
   const qc = useQueryClient();
   const confirm = useConfirm();
+  const toast = useToast();
   const q = useQuery({ queryKey: ["admin-positions"], queryFn: positionApi.listAll });
   const [editing, setEditing] = useState<Position | "new" | null>(null);
 
@@ -303,14 +315,21 @@ function PositionPanel() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-positions"] });
       qc.invalidateQueries({ queryKey: ["positions"] });
+      toast.success("ลบระดับแล้ว");
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+          ?.message ?? "ลบไม่สำเร็จ";
+      toast.error(msg);
     },
   });
 
   async function onDelete(p: Position) {
     const ok = await confirm({
       title: "ยืนยันการลบระดับ",
-      message: `ปิดใช้งานระดับ "${p.name}"?\nจะไม่แสดงใน dropdown แต่ข้อมูลเดิมยังอยู่`,
-      confirmLabel: "ปิดใช้งาน",
+      message: `ลบระดับ "${p.name}" ออกจากระบบถาวร?\n\nระบบจะตรวจสอบก่อน — ถ้าระดับนี้ถูกใช้งานอยู่ (มีพนักงาน/ผู้ใช้) จะลบไม่ได้`,
+      confirmLabel: "ลบถาวร",
       tone: "danger",
     });
     if (ok) delMut.mutate(p.id);
@@ -357,21 +376,22 @@ function PositionPanel() {
                 </td>
                 <td className="px-4 py-2 text-right">
                   <div className="inline-flex items-center gap-1">
-                    <button
-                      onClick={() => setEditing(p)}
-                      className="text-brand-700 hover:bg-brand-50 p-1.5 rounded"
-                      title="แก้ไข"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => onDelete(p)}
-                      disabled={!p.is_active}
-                      className="text-rose-600 hover:bg-rose-50 disabled:text-slate-300 disabled:bg-transparent p-1.5 rounded"
-                      title="ปิดใช้งาน"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <Tooltip label="แก้ไข">
+                      <button
+                        onClick={() => setEditing(p)}
+                        className="text-brand-700 hover:bg-brand-50 p-1.5 rounded"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip label="ลบ">
+                      <button
+                        onClick={() => onDelete(p)}
+                        className="text-rose-600 hover:bg-rose-50 p-1.5 rounded"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </Tooltip>
                   </div>
                 </td>
               </tr>
@@ -456,7 +476,7 @@ function PositionModal({ initial, onClose }: { initial: Position | null; onClose
           checked={isActive}
           onChange={(e) => setIsActive(e.target.checked)}
         />
-        เปิดใช้งาน (แสดงใน dropdown)
+        Active
       </label>
     </FormModal>
   );
@@ -469,6 +489,7 @@ const COMPANY_PAGE_SIZE = 10;
 function CompanyPanel() {
   const qc = useQueryClient();
   const confirm = useConfirm();
+  const toast = useToast();
   const q = useQuery({ queryKey: ["admin-companies"], queryFn: companyApi.listAll });
   const [editing, setEditing] = useState<Company | "new" | null>(null);
   const [search, setSearch] = useState("");
@@ -479,14 +500,21 @@ function CompanyPanel() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-companies"] });
       qc.invalidateQueries({ queryKey: ["companies"] });
+      toast.success("ลบบริษัทแล้ว");
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+          ?.message ?? "ลบไม่สำเร็จ";
+      toast.error(msg);
     },
   });
 
   async function onDelete(cmp: Company) {
     const ok = await confirm({
       title: "ยืนยันการลบบริษัท",
-      message: `ปิดใช้งานบริษัท "${cmp.name}"?\nจะไม่แสดงใน dropdown แต่ข้อมูลเดิมยังอยู่`,
-      confirmLabel: "ปิดใช้งาน",
+      message: `ลบบริษัท "${cmp.name}" ออกจากระบบถาวร?\n\nระบบจะตรวจสอบก่อน — ถ้าบริษัทนี้ถูกใช้งานอยู่ในเอกสารจะลบไม่ได้\n(เอกสารเดิมยังเก็บชื่อบริษัทไว้)`,
+      confirmLabel: "ลบถาวร",
       tone: "danger",
     });
     if (ok) delMut.mutate(cmp.id);
@@ -532,14 +560,15 @@ function CompanyPanel() {
               className="input pl-8 pr-8 py-1.5 w-56 rounded-full px-5.5 py-5.5"
             />
             {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                title="ล้างคำค้นหา"
-              >
-                <X size={14} />
-              </button>
+              <Tooltip label="ล้างคำค้นหา" className="absolute right-2 top-1/2 -translate-y-1/2">
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X size={14} />
+                </button>
+              </Tooltip>
             )}
           </div>
           <button onClick={() => setEditing("new")} className="btn-primary inline-flex items-center gap-2">
@@ -607,21 +636,22 @@ function CompanyPanel() {
                 </td>
                 <td className="px-4 py-2 text-right">
                   <div className="inline-flex items-center gap-1">
-                    <button
-                      onClick={() => setEditing(cmp)}
-                      className="text-brand-700 hover:bg-brand-50 p-1.5 rounded"
-                      title="แก้ไข"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => onDelete(cmp)}
-                      disabled={!cmp.is_active}
-                      className="text-rose-600 hover:bg-rose-50 disabled:text-slate-300 disabled:bg-transparent p-1.5 rounded"
-                      title="ปิดใช้งาน"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <Tooltip label="แก้ไข">
+                      <button
+                        onClick={() => setEditing(cmp)}
+                        className="text-brand-700 hover:bg-brand-50 p-1.5 rounded"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip label="ลบ">
+                      <button
+                        onClick={() => onDelete(cmp)}
+                        className="text-rose-600 hover:bg-rose-50 p-1.5 rounded"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </Tooltip>
                   </div>
                 </td>
               </tr>
@@ -685,18 +715,19 @@ function Pagination({
         แสดง {from}–{to} จาก {totalItems} รายการ
       </div>
       <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => onPage(page - 1)}
-          disabled={page <= 1}
-          className={cn(
-            btn,
-            "border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
-          )}
-          title="ก่อนหน้า"
-        >
-          <ChevronLeft size={16} />
-        </button>
+        <Tooltip label="ก่อนหน้า">
+          <button
+            type="button"
+            onClick={() => onPage(page - 1)}
+            disabled={page <= 1}
+            className={cn(
+              btn,
+              "border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
+            )}
+          >
+            <ChevronLeft size={16} />
+          </button>
+        </Tooltip>
         {pages.map((p, i) =>
           p === "…" ? (
             <span key={`e${i}`} className="px-1 text-slate-400">
@@ -718,18 +749,19 @@ function Pagination({
             </button>
           )
         )}
-        <button
-          type="button"
-          onClick={() => onPage(page + 1)}
-          disabled={page >= totalPages}
-          className={cn(
-            btn,
-            "border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
-          )}
-          title="ถัดไป"
-        >
-          <ChevronRight size={16} />
-        </button>
+        <Tooltip label="ถัดไป">
+          <button
+            type="button"
+            onClick={() => onPage(page + 1)}
+            disabled={page >= totalPages}
+            className={cn(
+              btn,
+              "border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
+            )}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );
@@ -752,6 +784,11 @@ function CompanyModal({ initial, onClose }: { initial: Company | null; onClose: 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-companies"] });
       qc.invalidateQueries({ queryKey: ["companies"] });
+      // A rename cascades to documents.company_name (no FK — stored by value),
+      // so refresh every consumer of the documents list too.
+      qc.invalidateQueries({ queryKey: ["documents"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(isNew ? "เพิ่มบริษัทเรียบร้อยแล้ว" : "บันทึกการแก้ไขเรียบร้อยแล้ว");
       onClose();
     },
     onError: (err: unknown) => {
@@ -809,7 +846,7 @@ function CompanyModal({ initial, onClose }: { initial: Company | null; onClose: 
           checked={isActive}
           onChange={(e) => setIsActive(e.target.checked)}
         />
-        เปิดใช้งาน (แสดงใน dropdown)
+        Active
       </label>
     </FormModal>
   );
@@ -830,12 +867,15 @@ function FormModal({
   onSave: () => void;
   saving: boolean;
 }) {
-  return (
+  if (typeof document === "undefined") return null;
+  // Portal ไป <body> + backdrop -inset-8: กัน fixed เพี้ยนจาก ancestor ในเพจ
+  // และกัน backdrop-blur เว้นแถบขาวริมจอ (มาตรฐาน modal ทุกตัว)
+  return createPortal(
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 z-[90] flex items-center justify-center p-4 animate-in fade-in duration-150 overflow-hidden"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+      <div className="absolute -inset-8 bg-slate-900/40 backdrop-blur-sm" />
       <div
         role="dialog"
         aria-modal="true"
@@ -865,7 +905,8 @@ function FormModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -894,6 +935,7 @@ function FormRow({
 function StaffPanel() {
   const qc = useQueryClient();
   const confirm = useConfirm();
+  const toast = useToast();
   const q = useQuery({ queryKey: ["admin-staff"], queryFn: staffApi.listAll });
   const [editing, setEditing] = useState<Staff | "new" | null>(null);
 
@@ -902,14 +944,21 @@ function StaffPanel() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-staff"] });
       qc.invalidateQueries({ queryKey: ["staff"] });
+      toast.success("ลบพนักงานแล้ว");
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+          ?.message ?? "ลบไม่สำเร็จ";
+      toast.error(msg);
     },
   });
 
   async function onDelete(s: Staff) {
     const ok = await confirm({
       title: "ยืนยันการลบพนักงาน",
-      message: `ปิดใช้งาน "${s.full_name}"?\nจะไม่แสดงใน dropdown แต่ข้อมูลเดิมยังอยู่`,
-      confirmLabel: "ปิดใช้งาน",
+      message: `ลบพนักงาน "${s.full_name}" ออกจากระบบถาวร?\n\nระบบจะตรวจสอบก่อน — ถ้าพนักงานนี้ถูกใช้เป็นผู้รับผิดชอบในเอกสารจะลบไม่ได้`,
+      confirmLabel: "ลบถาวร",
       tone: "danger",
     });
     if (ok) delMut.mutate(s.id);
@@ -988,21 +1037,22 @@ function StaffPanel() {
                 </td>
                 <td className="px-4 py-2 text-right">
                   <div className="inline-flex items-center gap-1">
-                    <button
-                      onClick={() => setEditing(s)}
-                      className="text-brand-700 hover:bg-brand-50 p-1.5 rounded"
-                      title="แก้ไข"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => onDelete(s)}
-                      disabled={!s.is_active}
-                      className="text-rose-600 hover:bg-rose-50 disabled:text-slate-300 disabled:bg-transparent p-1.5 rounded"
-                      title="ปิดใช้งาน"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <Tooltip label="แก้ไข">
+                      <button
+                        onClick={() => setEditing(s)}
+                        className="text-brand-700 hover:bg-brand-50 p-1.5 rounded"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip label="ลบ">
+                      <button
+                        onClick={() => onDelete(s)}
+                        className="text-rose-600 hover:bg-rose-50 p-1.5 rounded"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </Tooltip>
                   </div>
                 </td>
               </tr>
@@ -1128,7 +1178,7 @@ function StaffModal({ initial, onClose }: { initial: Staff | null; onClose: () =
           checked={isActive}
           onChange={(e) => setIsActive(e.target.checked)}
         />
-        เปิดใช้งาน (แสดงใน dropdown)
+        Active
       </label>
     </FormModal>
   );

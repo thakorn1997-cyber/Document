@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -100,17 +101,38 @@ func (h *MasterAdminHandler) UpdateDepartment(c *gin.Context) {
 	OK(c, gin.H{"ok": true})
 }
 
+// DeleteDepartment hard-removes a department only when nothing references it
+// (documents, acknowledgements, recipients, download logs, staff, or user
+// assignments). All those FKs are NO ACTION / CASCADE, so we block on any use.
 func (h *MasterAdminHandler) DeleteDepartment(c *gin.Context) {
 	if !isAdmin(c) {
 		Err(c, http.StatusForbidden, "FORBIDDEN", "admin only")
 		return
 	}
 	id := c.Param("id")
-	// Soft-delete: mark inactive (safer than DELETE — protects FK from documents/users)
-	_, err := h.DB.Exec(c.Request.Context(),
-		`UPDATE departments SET is_active = FALSE WHERE id = $1`, id)
+	ctx := c.Request.Context()
+
+	var used int
+	_ = h.DB.QueryRow(ctx, `
+		SELECT
+		  (SELECT COUNT(*) FROM documents WHERE source_department_id = $1) +
+		  (SELECT COUNT(*) FROM acknowledgements WHERE department_id = $1) +
+		  (SELECT COUNT(*) FROM document_recipients WHERE target_department_id = $1) +
+		  (SELECT COUNT(*) FROM download_logs WHERE downloaded_department_id = $1) +
+		  (SELECT COUNT(*) FROM staff_master WHERE department_id = $1) +
+		  (SELECT COUNT(*) FROM user_departments WHERE department_id = $1)`, id).Scan(&used)
+	if used > 0 {
+		Err(c, http.StatusConflict, "IN_USE",
+			fmt.Sprintf("ลบไม่ได้ แผนกนี้ถูกใช้งานอยู่ %d รายการ (เอกสาร/พนักงาน/ผู้ใช้)", used))
+		return
+	}
+	tag, err := h.DB.Exec(ctx, `DELETE FROM departments WHERE id = $1`, id)
 	if err != nil {
 		Err(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		Err(c, http.StatusNotFound, "NOT_FOUND", "department not found")
 		return
 	}
 	OK(c, gin.H{"ok": true})
@@ -209,16 +231,33 @@ func (h *MasterAdminHandler) UpdatePosition(c *gin.Context) {
 	OK(c, gin.H{"ok": true})
 }
 
+// DeletePosition hard-removes a level/position only when no staff or user is
+// assigned to it (both FKs are NO ACTION).
 func (h *MasterAdminHandler) DeletePosition(c *gin.Context) {
 	if !isAdmin(c) {
 		Err(c, http.StatusForbidden, "FORBIDDEN", "admin only")
 		return
 	}
 	id := c.Param("id")
-	_, err := h.DB.Exec(c.Request.Context(),
-		`UPDATE positions SET is_active = FALSE WHERE id = $1`, id)
+	ctx := c.Request.Context()
+
+	var used int
+	_ = h.DB.QueryRow(ctx, `
+		SELECT
+		  (SELECT COUNT(*) FROM staff_master WHERE position_id = $1) +
+		  (SELECT COUNT(*) FROM users WHERE position_id = $1)`, id).Scan(&used)
+	if used > 0 {
+		Err(c, http.StatusConflict, "IN_USE",
+			fmt.Sprintf("ลบไม่ได้ ระดับนี้ถูกใช้งานอยู่ %d รายการ (พนักงาน/ผู้ใช้)", used))
+		return
+	}
+	tag, err := h.DB.Exec(ctx, `DELETE FROM positions WHERE id = $1`, id)
 	if err != nil {
 		Err(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		Err(c, http.StatusNotFound, "NOT_FOUND", "position not found")
 		return
 	}
 	OK(c, gin.H{"ok": true})

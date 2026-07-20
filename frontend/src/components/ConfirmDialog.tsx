@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, HelpCircle, X } from "lucide-react";
 
 export type ConfirmTone = "primary" | "danger" | "success";
@@ -68,12 +69,15 @@ function Dialog({ state, onClose }: { state: State; onClose: (v: boolean) => voi
   const styles = TONE_STYLES[tone];
   const Icon = styles.icon;
 
-  return (
+  if (typeof document === "undefined") return null;
+  // Portal ไป <body> + backdrop -inset-8: มาตรฐาน modal ทุกตัว (กัน fixed เพี้ยน
+  // จาก ancestor และกัน backdrop-blur เว้นแถบขาวริมจอ)
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-150 overflow-hidden"
       onClick={() => onClose(false)}
     >
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+      <div className="absolute -inset-8 bg-slate-900/40 backdrop-blur-sm" />
       <div
         role="dialog"
         aria-modal="true"
@@ -114,7 +118,8 @@ function Dialog({ state, onClose }: { state: State; onClose: (v: boolean) => voi
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

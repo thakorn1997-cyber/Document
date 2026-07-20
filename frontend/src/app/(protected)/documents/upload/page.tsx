@@ -13,10 +13,11 @@ import {
   UploadCloud,
   Save,
 } from "lucide-react";
-import { documentApi, staffApi, companyApi } from "@/lib/api/endpoints";
+import { documentApi, staffApi, companyApi, authApi } from "@/lib/api/endpoints";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { DatePicker } from "@/components/DatePicker";
 import { Tooltip } from "@/components/Tooltip";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,11 @@ export default function UploadPage() {
   const staffQ = useQuery({ queryKey: ["staff"], queryFn: staffApi.list });
   const companiesQ = useQuery({ queryKey: ["companies"], queryFn: companyApi.list });
   const companyNames = (companiesQ.data ?? []).map((c) => c.name);
+  const meQ = useQuery({ queryKey: ["me"], queryFn: authApi.me });
+  const admin = (meQ.data?.roles ?? []).some((r) => r === "SystemAdmin" || r === "admin");
+  // Companies added via the "＋" row this session (name → id) so we can set their
+  // default WorkOrder at save time (only for Standard docs).
+  const createdCompanies = useRef<Map<string, string>>(new Map());
 
   // Selecting a company pulls its default WorkOrder into the field (option A: overwrite);
   // only when that company has a non-empty default, so we never wipe a manually typed value.
@@ -50,6 +56,41 @@ export default function UploadPage() {
     setCompanyName(v);
     const match = (companiesQ.data ?? []).find((c) => c.name === v);
     if (match && match.work_order.trim()) setWorkOrder(match.work_order);
+  }
+
+  // Admin-only: "＋ เพิ่ม" persists the typed company into the Master, then selects it.
+  // Its default WorkOrder is captured later at save time (see mut) for Standard docs.
+  async function onCreateCompany(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    // Already in Master (case-insensitive) → just select it (and pull its default WO).
+    const existing = (companiesQ.data ?? []).find(
+      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existing) {
+      onCompanyChange(existing.name);
+      return;
+    }
+    try {
+      const res = await companyApi.create({ name: trimmed });
+      createdCompanies.current.set(trimmed, res.id);
+      await qc.invalidateQueries({ queryKey: ["companies"] });
+      setCompanyName(trimmed);
+      toast.success(`เพิ่มบริษัท "${trimmed}" เข้าระบบแล้ว`);
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        // Someone created it between the list load and now — treat as select.
+        setCompanyName(trimmed);
+        await qc.invalidateQueries({ queryKey: ["companies"] });
+        toast.info("บริษัทนี้มีอยู่แล้ว เลือกให้อัตโนมัติ");
+      } else {
+        const msg =
+          (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data
+            ?.error?.message ?? "เพิ่มบริษัทไม่สำเร็จ";
+        toast.error(msg);
+      }
+    }
   }
 
   // Section 1: Project
@@ -126,7 +167,26 @@ export default function UploadPage() {
       if (uaiStatus) form.append("uai_status", uaiStatus);
       if (uaiDate) form.append("uai_date", uaiDate);
       for (const f of files) form.append("files", f);
-      return documentApi.create(form);
+      const created = await documentApi.create(form);
+
+      // If an admin added this company from the field, capture the WorkOrder as its
+      // Master default — but only for Standard-type docs (the "Standard WO" convention).
+      // Best-effort: the document is already saved, so a failure here is non-fatal.
+      if (admin && projectType === "Standard" && workOrder.trim()) {
+        const cid = createdCompanies.current.get(companyName.trim());
+        if (cid) {
+          try {
+            await companyApi.update(cid, {
+              name: companyName.trim(),
+              work_order: workOrder.trim(),
+            });
+            qc.invalidateQueries({ queryKey: ["companies"] });
+          } catch {
+            /* default WO is a nice-to-have; ignore */
+          }
+        }
+      }
+      return created;
     },
     onSuccess: (res: { id: string }) => {
       qc.invalidateQueries({ queryKey: ["documents", "all"] });
@@ -201,7 +261,7 @@ export default function UploadPage() {
             <button
               type="submit"
               disabled={mut.isPending}
-              className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-lg shadow-sm shadow-brand-500/25 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-blue-600 to-indigo-600 px-[17px] py-[9px] text-sm font-medium text-white shadow-[0_3px_10px_rgba(79,70,229,0.30)] transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-[0_4px_14px_rgba(79,70,229,0.38)] active:scale-[0.98]"
             >
               <Save size={16} />
               {mut.isPending ? "กำลังบันทึก..." : "บันทึก"}
@@ -244,6 +304,8 @@ export default function UploadPage() {
                     options={companyNames.map((n) => ({ id: n, label: n }))}
                     placeholder="-- เลือก / พิมพ์ชื่อบริษัท --"
                     creatable
+                    onCreate={admin ? onCreateCompany : undefined}
+                    createLabel={admin ? "เพิ่ม" : "ใช้"}
                   />
                 </Field>
                 <Field label="WorkOrder" required>
@@ -276,12 +338,7 @@ export default function UploadPage() {
                   )}
                 </Field>
                 <Field label="วันที่ติดตั้ง">
-                  <input
-                    type="date"
-                    className="input"
-                    value={installDate}
-                    onChange={(e) => setInstallDate(e.target.value)}
-                  />
+                  <DatePicker value={installDate} onChange={setInstallDate} />
                 </Field>
               </div>
 
@@ -479,9 +536,9 @@ function StatusGroup({
   disabledNote?: string;
 }) {
   const OPTIONS: { value: StatusChoice; label: string; cls: string }[] = [
-    { value: "Pending", label: "Pending", cls: "border-amber-300 text-amber-700 bg-amber-50" },
-    { value: "Passed", label: "Passed", cls: "border-emerald-300 text-emerald-700 bg-emerald-50" },
-    { value: "Failed", label: "Failed", cls: "border-rose-300 text-rose-700 bg-rose-50" },
+    { value: "Pending", label: "Pending", cls: "inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-800" },
+    { value: "Passed", label: "Passed", cls: "inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-800" },
+    { value: "Failed", label: "Failed", cls: "inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-red-100 text-red-800 border border-red-800" },
   ];
   return (
     <div className={cn("space-y-3", disabled && "opacity-50")}>
@@ -499,7 +556,7 @@ function StatusGroup({
                 disabled={disabled}
                 onClick={() => onStatus(opt.value)}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg border text-xs font-medium",
+                  "inline-block rounded-full px-2.5 py-0.5 text-xs font-medium",
                   active ? "border-brand-600 bg-brand-600 text-white" : "bg-white " + opt.cls,
                   disabled && "cursor-not-allowed"
                 )}
@@ -513,13 +570,7 @@ function StatusGroup({
 
       <div>
         <div className="text-xs text-slate-500 mb-1.5">วันที่ {label}</div>
-        <input
-          type="date"
-          className="input disabled:cursor-not-allowed disabled:bg-slate-50"
-          value={date}
-          disabled={disabled}
-          onChange={(e) => onDate(e.target.value)}
-        />
+        <DatePicker value={date} disabled={disabled} onChange={onDate} />
       </div>
 
       {disabled && disabledNote && (

@@ -4,12 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   FileSpreadsheet, FileText, Download, ChevronDown, Check, CalendarDays, Filter, Layers,
-  Files, CircleCheck, Clock, Hourglass, ChevronLeft, ChevronRight,
+  Files, CircleCheck, Hourglass, ChevronLeft, ChevronRight, Tag, AlertTriangle,
 } from "lucide-react";
 import { documentApi, settingsApi, type DocumentSummary } from "@/lib/api/endpoints";
 import { MusicLoader } from "@/components/MusicLoader";
 import { useToast } from "@/components/Toast";
-import { cn } from "@/lib/utils";
+import { DatePicker } from "@/components/DatePicker";
+import { Tooltip } from "@/components/Tooltip";
+import { cn, serverToday } from "@/lib/utils";
 
 const DASH = "—";
 const DAY = 86_400_000;
@@ -19,7 +21,9 @@ const DEFAULT_LATE = 30;
 type ViewType = "both" | "uai" | "uat";
 type Kind = "uai" | "uat";
 type DateMode = "all" | "7" | "30" | "90" | "custom";
-type MenuKey = "view" | "status" | "date" | "export";
+type MenuKey = "view" | "type" | "status" | "date" | "export";
+
+const PROJECT_TYPES = ["Standard", "Modify", "Add-on"];
 
 function fmtDate(v?: string | null): string {
   return v ? new Date(v).toLocaleDateString("th-TH-u-ca-gregory") : DASH;
@@ -36,7 +40,9 @@ function calDays(from: Date, to: Date): number {
 
 type Aging = { value: number | null; locked: boolean; note?: string };
 
-function computeAging(d: DocumentSummary, kind: Kind): Aging {
+// `today` must come from the API's meta.server_date (see serverToday in lib/utils)
+// so the running count can't be skewed by a wrong client clock.
+function computeAging(d: DocumentSummary, kind: Kind, today: Date): Aging {
   if (!d.install_date) return { value: null, locked: false, note: "ไม่มีวันติดตั้ง" };
   const install = new Date(d.install_date);
   const status = kind === "uai" ? d.uai_status : d.uat_status;
@@ -45,7 +51,7 @@ function computeAging(d: DocumentSummary, kind: Kind): Aging {
     if (!date) return { value: null, locked: true, note: `Passed แต่ไม่มีวัน ${kind.toUpperCase()}` };
     return { value: Math.max(0, calDays(install, new Date(date))), locked: true };
   }
-  return { value: Math.max(0, calDays(install, new Date())), locked: false };
+  return { value: Math.max(0, calDays(install, today)), locked: false };
 }
 
 function agingCls(a: Aging, warn: number, late: number): string {
@@ -57,9 +63,9 @@ function agingCls(a: Aging, warn: number, late: number): string {
 }
 
 const STATUS_CLS: Record<string, string> = {
-  Passed: "bg-emerald-100 text-emerald-800 border border-emerald-300",
-  Pending: "bg-amber-100 text-amber-800 border border-amber-300",
-  Failed: "bg-rose-100 text-rose-800 border border-rose-300",
+  Passed: "bg-emerald-100 text-emerald-800 border border-emerald-800",
+  Pending: "bg-amber-100 text-amber-800 border border-amber-800",
+  Failed: "bg-rose-100 text-rose-800 border border-rose-800",
 };
 function StatusPill({ status }: { status?: string }) {
   if (!status) return <span className="text-slate-300 text-xs">—</span>;
@@ -70,15 +76,33 @@ function StatusPill({ status }: { status?: string }) {
   );
 }
 
+const TYPE_CLS: Record<string, string> = {
+  Standard: "bg-[#E7F1FF] text-[#2563EB] border border-[#2563EB]",
+  Modify: "bg-[#ECFDF5] text-[#059669] border border-[#059669]",
+  "Add-on": "bg-[#F3E8FF] text-[#7C3AED] border border-[#7C3AED]",
+};
+function TypeBadge({ type }: { type?: string }) {
+  if (!type) return <span className="text-slate-300 text-xs">—</span>;
+  return (
+    <span className={cn("inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold", TYPE_CLS[type] ?? "bg-slate-200 text-slate-700 border border-slate-300")}>
+      {type}
+    </span>
+  );
+}
+
 export default function ReportsPage() {
   const toast = useToast();
-  const q = useQuery({ queryKey: ["documents", "all"], queryFn: () => documentApi.list({ size: 500 }) });
+  const q = useQuery({ queryKey: ["documents", "all"], queryFn: documentApi.listAll });
   const settingsQ = useQuery({ queryKey: ["settings"], queryFn: settingsApi.get });
 
   const warn = Number(settingsQ.data?.report_aging?.warn_days ?? DEFAULT_WARN);
   const late = Number(settingsQ.data?.report_aging?.late_days ?? DEFAULT_LATE);
 
+  // "วันนี้" ตามนาฬิกา server (meta.server_date) — กัน aging เพี้ยนเมื่อนาฬิกาเครื่องผู้ใช้ผิด
+  const today = useMemo(() => serverToday(q.data?.meta?.server_date), [q.data?.meta?.server_date]);
+
   const [view, setView] = useState<ViewType>("both");
+  const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [dateMode, setDateMode] = useState<DateMode>("all");
   const [from, setFrom] = useState("");
@@ -102,8 +126,7 @@ export default function ReportsPage() {
     setDateMode(m);
     if (m === "all") { setFrom(""); setTo(""); setMenu(null); }
     else if (m !== "custom") {
-      const today = new Date();
-      const start = new Date();
+      const start = new Date(today);
       start.setDate(today.getDate() - (Number(m) - 1));
       setFrom(isoLocal(start));
       setTo(isoLocal(today));
@@ -117,25 +140,47 @@ export default function ReportsPage() {
     return base.filter((d) => {
       if (from && (!d.install_date || d.install_date.slice(0, 10) < from)) return false;
       if (to && (!d.install_date || d.install_date.slice(0, 10) > to)) return false;
+      if (typeFilter && (d.project_type ?? "") !== typeFilter) return false;
       if (statusFilter) {
         const s = kind === "uai" ? d.uai_status : d.uat_status;
         if ((s ?? "") !== statusFilter) return false;
       }
       return true;
     });
-  }, [base, from, to, statusFilter, kind]);
+  }, [base, from, to, typeFilter, statusFilter, kind]);
 
+  // Per-kind stats — UAI and UAT are BOTH computed so the pill row can show both
+  // groups when view = "both" (pills follow the showUai/showUat toggle).
   const stats = useMemo(() => {
-    let passed = 0, running = 0, sum = 0, sumCount = 0;
+    const forKind = (k: Kind) => {
+      let passed = 0, sum = 0, sumCount = 0;
+      for (const d of rows) {
+        const s = k === "uai" ? d.uai_status : d.uat_status;
+        const a = computeAging(d, k, today);
+        if (s === "Passed") passed++;
+        if (a.locked && a.value !== null) { sum += a.value; sumCount++; }
+      }
+      return { passed, avg: sumCount ? Math.round(sum / sumCount) : null };
+    };
+    return { total: rows.length, uai: forKind("uai"), uat: forKind("uat") };
+  }, [rows, today]);
+
+  // % of total, 1 decimal; null when there are no rows (avoid 0/0)
+  const pctOf = (n: number) => (stats.total ? Math.round((n / stats.total) * 1000) / 10 : null);
+
+  // เอกสารที่ "เกินเกณฑ์ช้า": ยังไม่ผ่าน (running) และนับวัน ≥ late — นับตาม kind
+  // ที่แสดงอยู่ (view=ทั้งหมด → ช้าฝั่งใดฝั่งหนึ่งก็นับ, นับเอกสารละ 1 ครั้ง)
+  const lateCount = useMemo(() => {
+    const lateFor = (d: DocumentSummary, k: Kind) => {
+      const a = computeAging(d, k, today);
+      return !a.locked && a.value !== null && a.value >= late;
+    };
+    let n = 0;
     for (const d of rows) {
-      const s = kind === "uai" ? d.uai_status : d.uat_status;
-      const a = computeAging(d, kind);
-      if (s === "Passed") passed++;
-      else running++;
-      if (a.locked && a.value !== null) { sum += a.value; sumCount++; }
+      if ((showUai && lateFor(d, "uai")) || (showUat && lateFor(d, "uat"))) n++;
     }
-    return { total: rows.length, passed, running, avg: sumCount ? Math.round(sum / sumCount) : null };
-  }, [rows, kind]);
+    return n;
+  }, [rows, late, today, showUai, showUat]);
 
   // Pagination (same 10-per-page pattern as the Documents list).
   const [pageSize, setPageSize] = useState<number | "all">(10);
@@ -148,20 +193,21 @@ export default function ReportsPage() {
   // Reset to page 1 whenever the filtered set or page size changes.
   useEffect(() => {
     setPage(1);
-  }, [view, statusFilter, dateMode, from, to, pageSize]);
+  }, [view, typeFilter, statusFilter, dateMode, from, to, pageSize]);
 
   type Col = { header: string; get: (d: DocumentSummary) => string | number };
   const exportCols: Col[] = useMemo(() => {
     const cols: Col[] = [
       { header: "บริษัท", get: (d) => d.company_name?.trim() || DASH },
       { header: "ผู้รับผิดชอบ", get: (d) => d.owner_project_name?.trim() || DASH },
+      { header: "ประเภทงาน", get: (d) => d.project_type?.trim() || DASH },
       { header: "วันที่ติดตั้ง", get: (d) => fmtDate(d.install_date) },
     ];
     if (showUai) cols.push({ header: "สถานะ UAI", get: (d) => d.uai_status || DASH }, { header: "วันที่ UAI", get: (d) => fmtDate(d.uai_date) });
     if (showUat) cols.push({ header: "สถานะ UAT", get: (d) => d.uat_status || DASH }, { header: "วันที่ UAT", get: (d) => fmtDate(d.uat_date) });
-    cols.push({ header: "จำนวนวัน", get: (d) => { const a = computeAging(d, kind); return a.value === null ? DASH : a.value; } });
+    cols.push({ header: "จำนวนวัน", get: (d) => { const a = computeAging(d, kind, today); return a.value === null ? DASH : a.value; } });
     return cols;
-  }, [showUai, showUat, kind]);
+  }, [showUai, showUat, kind, today]);
 
   const viewLabel = view === "uai" ? "UAI" : view === "uat" ? "UAT" : "ทั้งหมด";
   const dateLabel =
@@ -178,7 +224,7 @@ export default function ReportsPage() {
     ws["!cols"] = exportCols.map((c) => ({ wch: c.header.includes("บริษัท") || c.header.includes("ผู้รับผิดชอบ") ? 22 : 13 }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `รายงาน ${viewLabel}`);
-    XLSX.writeFile(wb, `report_${view}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `รายงานเอกสาร_UAI&UAT_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
   function exportPDF() {
@@ -222,10 +268,14 @@ th{background:#eff4fe;font-weight:600}
 
   return (
     <div className="space-y-6">
-      {/* Toolbar — chip filters */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <p className="text-sm text-slate-500 pt-2">รายงานเอกสารและระยะเวลาดำเนินการ</p>
-        <div ref={barRef} className="flex items-center gap-2 flex-wrap">
+      {/* Toolbar — chip filters. หัวข้อเป็นฝ่าย "หด" (flex-1 min-w-0 truncate) เมื่อที่แคบ
+          เพื่อไม่ให้กลุ่ม filter/ส่งออก ถูกดันตกบรรทัด (เคส sidebar เปิด + zoom 100%);
+          จอเล็กกว่า sm ซ่อนหัวข้อไปเลย เหลือแถบ filter ที่ wrap ของมันเอง */}
+      <div className="flex items-center justify-between gap-2">
+        <p className="hidden sm:block flex-1 min-w-0 truncate text-[13px] text-slate-500">
+          รายงานเอกสารและระยะเวลาดำเนินการ
+        </p>
+        <div ref={barRef} className="flex items-center justify-end gap-1.5 flex-wrap">
           {/* ประเภท */}
           <div className="relative">
             <Chip icon={Layers} label="ประเภท" value={viewLabel} active={view !== "both"} open={menu === "view"} onClick={() => toggle("view")} />
@@ -233,6 +283,17 @@ th{background:#eff4fe;font-weight:600}
               <Menu>
                 {([["both", "ทั้งหมด"], ["uai", "UAI"], ["uat", "UAT"]] as [ViewType, string][]).map(([v, l]) => (
                   <MenuItem key={v} selected={view === v} onClick={() => { setView(v); setMenu(null); }}>{l}</MenuItem>
+                ))}
+              </Menu>
+            )}
+          </div>
+          {/* ประเภทงาน (project_type) */}
+          <div className="relative">
+            <Chip icon={Tag} label="ประเภทงาน" value={typeFilter || "ทั้งหมด"} active={!!typeFilter} open={menu === "type"} onClick={() => toggle("type")} />
+            {menu === "type" && (
+              <Menu>
+                {["", ...PROJECT_TYPES].map((t) => (
+                  <MenuItem key={t} selected={typeFilter === t} onClick={() => { setTypeFilter(t); setMenu(null); }}>{t || "ทั้งหมด"}</MenuItem>
                 ))}
               </Menu>
             )}
@@ -259,10 +320,10 @@ th{background:#eff4fe;font-weight:600}
                 {dateMode === "custom" && (
                   <div className="px-3 pt-2 pb-1 border-t border-slate-100 mt-1 space-y-2">
                     <label className="block text-xs text-slate-500">จากวันที่
-                      <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="input mt-1 h-9 text-sm" />
+                      <div className="mt-1"><DatePicker value={from} max={to || undefined} onChange={setFrom} /></div>
                     </label>
                     <label className="block text-xs text-slate-500">ถึงวันที่
-                      <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="input mt-1 h-9 text-sm" />
+                      <div className="mt-1"><DatePicker value={to} min={from || undefined} onChange={setTo} /></div>
                     </label>
                   </div>
                 )}
@@ -274,11 +335,11 @@ th{background:#eff4fe;font-weight:600}
             <button
               onClick={() => toggle("export")}
               disabled={rows.length === 0}
-              className="inline-flex items-center gap-2 h-9 px-4 rounded-full bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-1.5 h-8 rounded-[10px] bg-gradient-to-br from-blue-600 to-indigo-600 px-3 text-[13px] font-medium text-white shadow-[0_3px_10px_rgba(79,70,229,0.30)] transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-[0_4px_14px_rgba(79,70,229,0.38)] active:scale-[0.98]"
             >
-              <Download size={15} />
+              <Download size={14} />
               ส่งออก
-              <ChevronDown size={14} className={cn("transition-transform", menu === "export" && "rotate-180")} />
+              <ChevronDown size={13} className={cn("transition-transform", menu === "export" && "rotate-180")} />
             </button>
             {menu === "export" && (
               <Menu align="right" className="w-52">
@@ -298,12 +359,36 @@ th{background:#eff4fe;font-weight:600}
         <div className="card"><MusicLoader /></div>
       ) : (
         <>
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <StatCard icon={Files} label="เอกสารทั้งหมด" value={stats.total} />
-            <StatCard icon={CircleCheck} label={`${kind.toUpperCase()} ผ่านแล้ว`} value={stats.passed} color="text-emerald-600" />
-            <StatCard icon={Clock} label="กำลังดำเนินการ" value={stats.running} color="text-amber-600" />
-            <StatCard icon={Hourglass} label="เฉลี่ยวันจนผ่าน" value={stats.avg === null ? "—" : stats.avg} suffix={stats.avg === null ? "" : " วัน"} />
+          {/* Summary pills (แบบ 11 — Toolbar Pills): ทั้งหมด + กลุ่ม UAI/UAT ตาม view toggle.
+              Responsive เป็นขั้น: มือถือ 1/แถว → sm 2/แถว → lg 3/แถว (2 แถวสมดุล) →
+              2xl บรรทัดเดียว (basis = เนื้อหา; label หดตัดท้ายได้ ตัวเลขไม่โดนตัด) */}
+          <div className="flex flex-wrap 2xl:flex-nowrap items-center gap-2">
+            <StatPill icon={Files} label="ทั้งหมด" value={stats.total} tone="plain" />
+            {showUai && (
+              <StatPill
+                icon={CircleCheck}
+                label="UAI ผ่านแล้ว"
+                value={`${stats.uai.passed}/${stats.total}`}
+                pct={pctOf(stats.uai.passed)}
+                tone="emerald"
+              />
+            )}
+            {showUat && (
+              <StatPill
+                icon={CircleCheck}
+                label="UAT ผ่านแล้ว"
+                value={`${stats.uat.passed}/${stats.total}`}
+                pct={pctOf(stats.uat.passed)}
+                tone="emerald"
+              />
+            )}
+            <StatPill icon={AlertTriangle} label="เกินเกณฑ์ช้า" value={lateCount} hint={`≥${late} วัน`} tone="rose" />
+            {showUai && (
+              <StatPill icon={Hourglass} label="เฉลี่ยจำนวนวันที่ส่ง UAI" value={stats.uai.avg === null ? "—" : `${stats.uai.avg} วัน`} tone="indigo" />
+            )}
+            {showUat && (
+              <StatPill icon={Hourglass} label="เฉลี่ยจำนวนวันที่ส่ง UAT" value={stats.uat.avg === null ? "—" : `${stats.uat.avg} วัน`} tone="indigo" />
+            )}
           </div>
 
           {/* Table */}
@@ -315,6 +400,7 @@ th{background:#eff4fe;font-weight:600}
                     <th className="px-3 py-3 font-semibold w-10 text-center"></th>
                     <th className="px-3 py-3 font-semibold">บริษัท</th>
                     <th className="px-3 py-3 font-semibold">ผู้รับผิดชอบ</th>
+                    <th className="px-3 py-3 font-semibold">ประเภทงาน</th>
                     <th className="px-3 py-3 font-semibold">วันที่ติดตั้ง</th>
                     {showUai && <th className="px-3 py-3 font-semibold">สถานะ UAI</th>}
                     {showUai && <th className="px-3 py-3 font-semibold">วันที่ UAI</th>}
@@ -330,12 +416,13 @@ th{background:#eff4fe;font-weight:600}
                     </tr>
                   )}
                   {pageRows.map((d, i) => {
-                    const a = computeAging(d, kind);
+                    const a = computeAging(d, kind, today);
                     return (
                       <tr key={d.id} className="border-t border-slate-100 hover:bg-brand-50/30 align-middle">
                         <td className="px-3 py-3 text-center text-slate-500 text-sm">{offset + i + 1}</td>
                         <td className="px-3 py-3 text-brand-700 font-medium whitespace-nowrap text-[15px]">{d.company_name || DASH}</td>
                         <td className="px-3 py-3 text-slate-700 text-sm whitespace-nowrap">{d.owner_project_name || <span className="text-slate-300">—</span>}</td>
+                        <td className="px-3 py-3 whitespace-nowrap"><TypeBadge type={d.project_type} /></td>
                         <td className="px-3 py-3 text-slate-600 text-sm whitespace-nowrap">{fmtDate(d.install_date)}</td>
                         {showUai && <td className="px-3 py-3"><StatusPill status={d.uai_status} /></td>}
                         {showUai && <td className="px-3 py-3 text-slate-600 text-sm whitespace-nowrap">{fmtDate(d.uai_date)}</td>}
@@ -343,11 +430,15 @@ th{background:#eff4fe;font-weight:600}
                         {showUat && <td className="px-3 py-3 text-slate-600 text-sm whitespace-nowrap">{fmtDate(d.uat_date)}</td>}
                         <td className="px-3 py-3 text-center">
                           {a.value === null ? (
-                            <span className="text-slate-300 font-bold" title={a.note}>—</span>
+                            <Tooltip label={a.note ?? ""}>
+                              <span className="text-slate-300 font-bold">—</span>
+                            </Tooltip>
                           ) : (
-                            <span className={cn("inline-flex items-center justify-center min-w-[38px] px-2.5 py-1 rounded-lg text-sm font-bold", agingCls(a, warn, late))} title={a.locked ? "ผ่านแล้ว (ล็อกค่า)" : "กำลังนับ"}>
-                              {a.value}
-                            </span>
+                            <Tooltip label={a.locked ? "ผ่านแล้ว (ล็อกค่า)" : "กำลังนับ"}>
+                              <span className={cn("inline-flex items-center justify-center min-w-[38px] px-2.5 py-1 rounded-lg text-sm font-bold", agingCls(a, warn, late))}>
+                                {a.value}
+                              </span>
+                            </Tooltip>
                           )}
                         </td>
                       </tr>
@@ -414,14 +505,14 @@ function Chip({
     <button
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-2 h-9 px-3.5 rounded-full border text-sm transition-colors",
+        "inline-flex items-center gap-1.5 h-8 px-3 rounded-full border text-[13px] transition-colors",
         active ? "border-brand-200 bg-brand-50" : "border-slate-200 bg-white hover:border-slate-300"
       )}
     >
-      <Icon size={15} className={active ? "text-brand-600" : "text-slate-400"} />
+      <Icon size={14} className={active ? "text-brand-600" : "text-slate-400"} />
       <span className={active ? "text-brand-400" : "text-slate-400"}>{label}</span>
       <span className={cn("font-semibold", active ? "text-brand-700" : "text-slate-800")}>{value}</span>
-      <ChevronDown size={14} className={cn("text-slate-300 transition-transform", open && "rotate-180")} />
+      <ChevronDown size={13} className={cn("text-slate-300 transition-transform", open && "rotate-180")} />
     </button>
   );
 }
@@ -443,20 +534,77 @@ function MenuItem({ selected, onClick, children }: { selected: boolean; onClick:
   );
 }
 
-function StatCard({
-  icon: Icon, label, value, color, suffix,
+const PILL_TONES = {
+  plain: {
+    pill: "bg-white border-slate-200",
+    icon: "bg-sky-100 text-sky-700",
+    label: "text-slate-500",
+    value: "text-slate-900",
+    badge: "bg-slate-100 text-slate-600",
+  },
+  emerald: {
+    pill: "bg-white border-slate-200",
+    icon: "bg-emerald-50 text-emerald-700",
+    label: "text-slate-500",
+    value: "text-slate-900",
+    badge: "bg-white text-emerald-800",
+  },
+  indigo: {
+    pill: "bg-white border-slate-200",
+    icon: "bg-indigo-100 text-indigo-700",
+    label: "text-slate-500",
+    value: "text-slate-900",
+    badge: "bg-indigo-100 text-indigo-700",
+  },
+  rose: {
+    pill: "bg-white border-slate-200",
+    icon: "bg-rose-50 text-rose-700",
+    label: "text-slate-500",
+    value: "text-slate-900",
+    badge: "bg-white text-rose-800",
+  },
+} as const;
+
+function StatPill({
+  icon: Icon, label, value, pct, hint, tone = "plain",
 }: {
-  icon: React.ElementType; label: string; value: number | string; color?: string; suffix?: string;
+  icon: React.ElementType;
+  label: string;
+  value: number | string;
+  pct?: number | null;
+  /** ป้ายข้อความสั้นๆ ต่อท้ายตัวเลข (เช่น เกณฑ์ "≥30 วัน") — ใช้สไตล์เดียวกับป้าย % */
+  hint?: string;
+  tone?: keyof typeof PILL_TONES;
 }) {
+  const t = PILL_TONES[tone];
   return (
-    <div className="card p-4">
-      <div className="text-xs text-slate-500 flex items-center gap-1.5 mb-1.5">
-        <Icon size={14} /> {label}
-      </div>
-      <div className={cn("text-2xl font-bold", color)}>
-        {value}
-        {suffix && <span className="text-sm font-medium text-slate-500">{suffix}</span>}
-      </div>
-    </div>
+    // basis ต่อ breakpoint คุมจำนวนใบ/แถวให้สมดุล (กัน pill เดียวตกไปยืดเต็มแถว);
+    // 2xl:basis-auto = เรียงตามเนื้อหาในบรรทัดเดียว, min-w-0 + truncate ให้ label
+    // หดได้เมื่อที่แคบ (ตัวเลข/ป้าย shrink-0 ไม่โดนตัด)
+    <span
+      className={cn(
+        "flex-auto min-w-0 basis-full sm:basis-[47%] lg:basis-[31%] 2xl:basis-auto",
+        "flex items-center gap-1.5 rounded-full border py-1.5 pl-1.5 pr-3",
+        t.pill
+      )}
+    >
+      <span className={cn("w-6 h-6 rounded-full flex items-center justify-center shrink-0", t.icon)}>
+        <Icon size={13} />
+      </span>
+      <span className={cn("text-xs truncate", t.label)}>{label}</span>
+      <span className="ml-auto shrink-0 inline-flex items-center gap-1.5 pl-1.5">
+        <span className={cn("text-[15px] font-bold tabular-nums whitespace-nowrap", t.value)}>{value}</span>
+        {pct !== null && pct !== undefined && (
+          <span className={cn("text-[10.5px] font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap", t.badge)}>
+            {pct}%
+          </span>
+        )}
+        {hint && (
+          <span className={cn("text-[10.5px] font-semibold rounded-full px-1.5 py-0.5 whitespace-nowrap", t.badge)}>
+            {hint}
+          </span>
+        )}
+      </span>
+    </span>
   );
 }

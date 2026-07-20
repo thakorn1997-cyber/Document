@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, ShieldCheck, User as UserIcon, X, Save, Trash2, Pencil, Briefcase } from "lucide-react";
 import {
@@ -15,6 +16,7 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
 import { AvatarUploader } from "@/components/AvatarUploader";
 import { Avatar } from "@/components/Avatar";
+import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/lib/utils";
 
 export function UsersTab() {
@@ -75,6 +77,7 @@ export function UsersTab() {
           รายชื่อ User ที่เคยเข้าระบบ (ทั้ง Local และ Azure) — คลิก "แก้ไข" เพื่อจัดการ
         </p>
         <div className="flex items-center gap-3">
+          <Tooltip label={inactiveCount === 0 ? "ไม่มี User ที่ Inactive" : ""}>
           <label
             className={cn(
               "inline-flex items-center gap-2 text-xs cursor-pointer select-none px-3 py-2 rounded-lg border transition",
@@ -82,7 +85,6 @@ export function UsersTab() {
                 ? "border-brand-300 bg-brand-50 text-brand-700"
                 : "border-slate-200 text-slate-600 hover:border-slate-300"
             )}
-            title={inactiveCount === 0 ? "ไม่มี User ที่ Inactive" : ""}
           >
             <input
               type="checkbox"
@@ -103,6 +105,7 @@ export function UsersTab() {
               </span>
             )}
           </label>
+          </Tooltip>
 
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -195,21 +198,23 @@ export function UsersTab() {
                   </td>
                   <td className="px-3 py-3 text-right">
                     <div className="inline-flex items-center gap-1">
-                      <button
-                        onClick={() => setEditing(u)}
-                        title="แก้ไข"
-                        className="text-brand-700 hover:bg-brand-50 rounded p-1.5"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => onDelete(u)}
-                        disabled={!u.is_active || delMut.isPending}
-                        title={u.is_active ? "ลบ (soft delete)" : "User inactive อยู่แล้ว"}
-                        className="text-rose-600 hover:bg-rose-50 disabled:text-slate-300 disabled:bg-transparent rounded p-1.5"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <Tooltip label="แก้ไข">
+                        <button
+                          onClick={() => setEditing(u)}
+                          className="text-brand-700 hover:bg-brand-50 rounded p-1.5"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      </Tooltip>
+                      <Tooltip label={u.is_active ? "ลบ (soft delete)" : "User inactive อยู่แล้ว"}>
+                        <button
+                          onClick={() => onDelete(u)}
+                          disabled={!u.is_active || delMut.isPending}
+                          className="text-rose-600 hover:bg-rose-50 disabled:text-slate-300 disabled:bg-transparent rounded p-1.5"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </Tooltip>
                     </div>
                   </td>
                 </tr>
@@ -314,12 +319,15 @@ function EditUserModal({
     if (ok) mut.mutate();
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+  // Portal ไป <body> + backdrop -inset-8: กัน fixed เพี้ยนจาก ancestor ในเพจ
+  // และกัน backdrop-blur เว้นแถบขาวริมจอ (มาตรฐาน modal ทุกตัว)
+  return createPortal(
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 z-[90] flex items-center justify-center p-4 animate-in fade-in duration-150 overflow-hidden"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+      <div className="absolute -inset-8 bg-slate-900/40 backdrop-blur-sm" />
       <div
         role="dialog"
         aria-modal="true"
@@ -445,7 +453,8 @@ function EditUserModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

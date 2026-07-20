@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"sort"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -65,29 +64,32 @@ func (h *DashboardHandler) Get(c *gin.Context) {
 
 	var resp dashboardResponse
 
-	// Totals
-	_ = h.DB.QueryRow(ctx, `SELECT COUNT(*) FROM documents`).Scan(&resp.Total)
-
-	_ = h.DB.QueryRow(ctx,
-		`SELECT COUNT(*) FROM documents WHERE owner_user_id = $1`, userID).Scan(&resp.Mine)
-
-	_ = h.DB.QueryRow(ctx, `
-		SELECT COUNT(*) FROM documents d
-		 WHERE NOT EXISTS (SELECT 1 FROM acknowledgements WHERE document_id = d.id)`).
-		Scan(&resp.PendingAck)
-
-	_ = h.DB.QueryRow(ctx, `
-		SELECT COUNT(*) FROM acknowledgements
-		 WHERE acknowledged_at::date = CURRENT_DATE`).Scan(&resp.AckedToday)
-
-	// Weekly trend
+	// All KPI numbers in ONE round-trip: a single scan over documents provides
+	// total/mine/pending-ack/trend/status counts via FILTER, and the two
+	// acknowledgement counters ride along as uncorrelated scalar subqueries.
+	// (Was 6 separate queries — same results, same indexes, 1/6th the trips.)
 	var thisWeek, lastWeek int64
 	_ = h.DB.QueryRow(ctx, `
 		SELECT
+		  COUNT(*),
+		  COUNT(*) FILTER (WHERE owner_user_id = $1),
+		  COUNT(*) FILTER (WHERE NOT EXISTS (
+		      SELECT 1 FROM acknowledgements a WHERE a.document_id = documents.id)),
+		  (SELECT COUNT(*) FROM acknowledgements WHERE acknowledged_at::date = CURRENT_DATE),
 		  COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'),
 		  COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '14 days'
-		                     AND created_at < CURRENT_DATE - INTERVAL '7 days')
-		  FROM documents`).Scan(&thisWeek, &lastWeek)
+		                     AND created_at < CURRENT_DATE - INTERVAL '7 days'),
+		  COUNT(*) FILTER (WHERE uat_status = 'Pending'),
+		  COUNT(*) FILTER (WHERE uat_status = 'Passed'),
+		  COUNT(*) FILTER (WHERE uat_status = 'Failed'),
+		  COUNT(*) FILTER (WHERE uai_status = 'Pending'),
+		  COUNT(*) FILTER (WHERE uai_status = 'Passed'),
+		  COUNT(*) FILTER (WHERE uai_status = 'Failed')
+		  FROM documents`, userID).
+		Scan(&resp.Total, &resp.Mine, &resp.PendingAck, &resp.AckedToday,
+			&thisWeek, &lastWeek,
+			&resp.Statuses.UAT.Pending, &resp.Statuses.UAT.Passed, &resp.Statuses.UAT.Failed,
+			&resp.Statuses.UAI.Pending, &resp.Statuses.UAI.Passed, &resp.Statuses.UAI.Failed)
 	resp.ThisWeek = thisWeek
 	if lastWeek == 0 {
 		// No baseline to compute a percentage from — flag it so the UI shows "+N new"
@@ -97,16 +99,22 @@ func (h *DashboardHandler) Get(c *gin.Context) {
 		resp.TrendPct = float64(thisWeek-lastWeek) / float64(lastWeek) * 100
 	}
 
-	// Daily counts (7 days)
+	// Daily counts (7 days). One range scan + GROUP BY joined onto the day series —
+	// NOT a correlated per-day subquery: `created_at::date = d` casts every row and
+	// can't use idx_documents_created_at, and would rescan documents once per day.
 	resp.Daily = []dailyCount{}
 	rows, err := h.DB.Query(ctx, `
 		WITH days AS (
 		  SELECT generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, INTERVAL '1 day')::date AS d
+		), counts AS (
+		  SELECT created_at::date AS d, COUNT(*) AS n
+		    FROM documents
+		   WHERE created_at >= CURRENT_DATE - INTERVAL '6 days'
+		   GROUP BY 1
 		)
-		SELECT to_char(d.d, 'YYYY-MM-DD'),
-		       COALESCE((SELECT COUNT(*) FROM documents WHERE created_at::date = d.d), 0)
-		  FROM days d
-		 ORDER BY d.d`)
+		SELECT to_char(days.d, 'YYYY-MM-DD'), COALESCE(counts.n, 0)
+		  FROM days LEFT JOIN counts ON counts.d = days.d
+		 ORDER BY days.d`)
 	if err == nil {
 		for rows.Next() {
 			var dc dailyCount
@@ -117,85 +125,47 @@ func (h *DashboardHandler) Get(c *gin.Context) {
 		rows.Close()
 	}
 
-	// Status breakdown — UAT + UAI, counts per Pending/Passed/Failed
-	_ = h.DB.QueryRow(ctx, `
-		SELECT
-		  COUNT(*) FILTER (WHERE uat_status = 'Pending'),
-		  COUNT(*) FILTER (WHERE uat_status = 'Passed'),
-		  COUNT(*) FILTER (WHERE uat_status = 'Failed'),
-		  COUNT(*) FILTER (WHERE uai_status = 'Pending'),
-		  COUNT(*) FILTER (WHERE uai_status = 'Passed'),
-		  COUNT(*) FILTER (WHERE uai_status = 'Failed')
-		  FROM documents`).
-		Scan(&resp.Statuses.UAT.Pending, &resp.Statuses.UAT.Passed, &resp.Statuses.UAT.Failed,
-			&resp.Statuses.UAI.Pending, &resp.Statuses.UAI.Passed, &resp.Statuses.UAI.Failed)
-
-	// Activity feed — merge recent uploads + acks
+	// Activity feed — uploads + acks + edits merged in ONE query (was 3).
+	// Each branch keeps its own ORDER BY/LIMIT (so each uses its own index),
+	// then the outer ORDER BY merges the ≤60 candidate rows and caps at 20.
+	// Edits come from the audit log; the INNER JOIN on documents drops UPDATEs
+	// on since-deleted documents.
 	activity := []activityItem{}
-
-	upRows, err := h.DB.Query(ctx, `
-		SELECT d.id::text, COALESCE(d.company_name,''), COALESCE(d.work_order,''),
-		       u.id::text, u.full_name, u.avatar_path, d.created_at
-		  FROM documents d
-		  LEFT JOIN users u ON u.id = d.owner_user_id
-		 ORDER BY d.created_at DESC LIMIT 20`)
+	actRows, err := h.DB.Query(ctx, `
+		SELECT kind, doc_id, company, work_order, actor_id, actor_name, actor_avatar, ts FROM (
+		  (SELECT 'upload' AS kind, d.id::text AS doc_id,
+		          COALESCE(d.company_name,'') AS company, COALESCE(d.work_order,'') AS work_order,
+		          u.id::text AS actor_id, u.full_name AS actor_name, u.avatar_path AS actor_avatar,
+		          d.created_at AS ts
+		     FROM documents d
+		     LEFT JOIN users u ON u.id = d.owner_user_id
+		    ORDER BY d.created_at DESC LIMIT 20)
+		  UNION ALL
+		  (SELECT 'acknowledge', d.id::text, COALESCE(d.company_name,''), COALESCE(d.work_order,''),
+		          u.id::text, u.full_name, u.avatar_path, a.acknowledged_at
+		     FROM acknowledgements a
+		     JOIN users u ON u.id = a.user_id
+		     JOIN documents d ON d.id = a.document_id
+		    ORDER BY a.acknowledged_at DESC LIMIT 20)
+		  UNION ALL
+		  (SELECT 'edit', d.id::text, COALESCE(d.company_name,''), COALESCE(d.work_order,''),
+		          u.id::text, u.full_name, u.avatar_path, a.created_at
+		     FROM audit_logs a
+		     JOIN documents d ON d.id::text = a.target_id
+		     LEFT JOIN users u ON u.id = a.actor_user_id
+		    WHERE a.action = 'UPDATE' AND a.target_type = 'Document'
+		    ORDER BY a.created_at DESC LIMIT 20)
+		) t
+		ORDER BY ts DESC LIMIT 20`)
 	if err == nil {
-		for upRows.Next() {
+		for actRows.Next() {
 			var a activityItem
-			a.Kind = "upload"
-			if err := upRows.Scan(&a.DocumentID, &a.CompanyName, &a.WorkOrder,
+			if err := actRows.Scan(&a.Kind, &a.DocumentID, &a.CompanyName, &a.WorkOrder,
 				&a.ActorID, &a.ActorName, &a.ActorAvatar, &a.At); err == nil {
 				activity = append(activity, a)
 			}
 		}
-		upRows.Close()
-	}
-
-	ackRows, err := h.DB.Query(ctx, `
-		SELECT d.id::text, COALESCE(d.company_name,''), COALESCE(d.work_order,''),
-		       u.id::text, u.full_name, u.avatar_path, a.acknowledged_at
-		  FROM acknowledgements a
-		  JOIN users u ON u.id = a.user_id
-		  JOIN documents d ON d.id = a.document_id
-		 ORDER BY a.acknowledged_at DESC LIMIT 20`)
-	if err == nil {
-		for ackRows.Next() {
-			var a activityItem
-			a.Kind = "acknowledge"
-			if err := ackRows.Scan(&a.DocumentID, &a.CompanyName, &a.WorkOrder,
-				&a.ActorID, &a.ActorName, &a.ActorAvatar, &a.At); err == nil {
-				activity = append(activity, a)
-			}
-		}
-		ackRows.Close()
-	}
-
-	// Document edits (from the audit log). Only surfaces docs that still exist
-	// (INNER JOIN drops UPDATEs on since-deleted documents).
-	editRows, err := h.DB.Query(ctx, `
-		SELECT d.id::text, COALESCE(d.company_name,''), COALESCE(d.work_order,''),
-		       u.id::text, u.full_name, u.avatar_path, a.created_at
-		  FROM audit_logs a
-		  JOIN documents d ON d.id::text = a.target_id
-		  LEFT JOIN users u ON u.id = a.actor_user_id
-		 WHERE a.action = 'UPDATE' AND a.target_type = 'Document'
-		 ORDER BY a.created_at DESC LIMIT 20`)
-	if err == nil {
-		for editRows.Next() {
-			var a activityItem
-			a.Kind = "edit"
-			if err := editRows.Scan(&a.DocumentID, &a.CompanyName, &a.WorkOrder,
-				&a.ActorID, &a.ActorName, &a.ActorAvatar, &a.At); err == nil {
-				activity = append(activity, a)
-			}
-		}
-		editRows.Close()
-	}
-
-	// Sort by At desc, cap at 10
-	sort.SliceStable(activity, func(i, j int) bool { return activity[i].At.After(activity[j].At) })
-	if len(activity) > 20 {
-		activity = activity[:20]
+		actRows.Close()
 	}
 	resp.Activity = activity
 
@@ -228,15 +198,21 @@ func (h *DashboardHandler) Daily(c *gin.Context) {
 		fromDate = toDate.AddDate(0, 0, -366)
 	}
 
+	// Same single-scan shape as Get's 7-day query — critical here since the span
+	// can be up to 366 days (the correlated version rescanned documents per day).
 	daily := []dailyCount{}
 	rows, err := h.DB.Query(ctx, `
 		WITH days AS (
 		  SELECT generate_series($1::date, $2::date, INTERVAL '1 day')::date AS d
+		), counts AS (
+		  SELECT created_at::date AS d, COUNT(*) AS n
+		    FROM documents
+		   WHERE created_at >= $1::date AND created_at < $2::date + INTERVAL '1 day'
+		   GROUP BY 1
 		)
-		SELECT to_char(d.d, 'YYYY-MM-DD'),
-		       COALESCE((SELECT COUNT(*) FROM documents WHERE created_at::date = d.d), 0)
-		  FROM days d
-		 ORDER BY d.d`,
+		SELECT to_char(days.d, 'YYYY-MM-DD'), COALESCE(counts.n, 0)
+		  FROM days LEFT JOIN counts ON counts.d = days.d
+		 ORDER BY days.d`,
 		fromDate.Format(layout), toDate.Format(layout))
 	if err != nil {
 		Err(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())

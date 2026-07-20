@@ -4,12 +4,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Plus, Search, Check, CheckCircle2, Pencil, Trash2,
+  FilePlus, Search, Check, CheckCircle2, Pencil, Trash2,
   Filter, ArrowUp, ArrowDown, X, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { documentApi, authApi, type DocumentSummary } from "@/lib/api/endpoints";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
+import { DatePicker } from "@/components/DatePicker";
+import { Tooltip } from "@/components/Tooltip";
 import { cn, saveBlob } from "@/lib/utils";
 import { useDragScroll } from "@/lib/useDragScroll";
 import { MusicLoader } from "@/components/MusicLoader";
@@ -66,7 +68,7 @@ export default function DocumentsPage() {
   const toast = useToast();
   const q = useQuery({
     queryKey: ["documents", "all"],
-    queryFn: () => documentApi.list({ size: 500 }),
+    queryFn: documentApi.listAll,
   });
   const meQ = useQuery({ queryKey: ["me"], queryFn: authApi.me });
   const admin = isAdminRole(meQ.data?.roles);
@@ -128,7 +130,15 @@ export default function DocumentsPage() {
   if (sort) {
     const col = COLUMNS.find((c) => c.key === sort.key);
     if (col) {
+      // A row is "empty" for this column when a date column has no date, or a
+      // value column renders "—". Empty rows always sink to the bottom regardless
+      // of sort direction, so rows with real data show first (asc and desc alike).
+      const isEmpty = (d: DocumentSummary) =>
+        col.date ? !col.date(d) : col.getValue(d) === DASH;
       items = [...items].sort((a, b) => {
+        const aE = isEmpty(a);
+        const bE = isEmpty(b);
+        if (aE || bE) return aE && bE ? 0 : aE ? 1 : -1;
         const av = col.sortValue(a);
         const bv = col.sortValue(b);
         const cmp =
@@ -232,8 +242,24 @@ export default function DocumentsPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Link href="/documents/upload" className="btn-primary inline-flex items-center gap-2">
-            <Plus size={16} />
+          <FilterButton
+            columns={COLUMNS}
+            distinctByCol={distinctByCol}
+            filters={filters}
+            dateFilters={dateFilters}
+            totalActive={activeFilterCount}
+            onChangeSelected={(key, vals) => setFilters((f) => ({ ...f, [key]: vals }))}
+            onChangeRange={(key, r) => setDateFilters((f) => ({ ...f, [key]: r }))}
+            onClearAll={() => {
+              setFilters({});
+              setDateFilters({});
+            }}
+          />
+          <Link
+            href="/documents/upload"
+            className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-blue-600 to-indigo-600 px-[17px] py-[9px] text-sm font-medium text-white shadow-[0_3px_10px_rgba(79,70,229,0.30)] transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-[0_4px_14px_rgba(79,70,229,0.38)] active:scale-[0.98]"
+          >
+            <FilePlus size={17} />
             เพิ่มเอกสาร
           </Link>
         </div>
@@ -299,20 +325,20 @@ export default function DocumentsPage() {
                     <td className="px-2.5 py-3">
                       <TypeBadge type={d.project_type} />
                     </td>
-                    <td className="px-2.5 py-3 text-slate-600 text-sm whitespace-nowrap">{fmtDate(d.install_date)}</td>
+                    <td className="px-2.5 py-3 text-slate-800 text-sm whitespace-nowrap">{fmtDate(d.install_date)}</td>
                     <td className="px-2.5 py-3 font-mono text-sm whitespace-nowrap">{d.work_order || "-"}</td>
-                    <td className="px-2.5 py-3 text-slate-700 text-sm whitespace-nowrap">
-                      {d.owner_project_name || <span className="text-slate-300">—</span>}
+                    <td className="px-2.5 py-3 text-slate-800 text-sm whitespace-nowrap">
+                      {d.owner_project_name || <span className=" px-10 text-slate-800">—</span>}
                     </td>
                     <td className="px-2.5 py-3">
                       <StatusBadge status={d.uai_status} />
                     </td>
-                    <td className="px-2.5 py-3 text-slate-600 text-sm whitespace-nowrap">{fmtDate(d.uai_date)}</td>
+                    <td className="px-2.5 py-3 text-slate-800 text-sm whitespace-nowrap">{fmtDate(d.uai_date)}</td>
                     <td className="px-2.5 py-3">
                       <StatusBadge status={d.uat_status} />
                     </td>
-                    <td className="px-2.5 py-3 text-slate-600 text-sm whitespace-nowrap">{fmtDate(d.uat_date)}</td>
-                    <td className="px-2.5 py-3">
+                    <td className="px-2.5 py-3 text-slate-800 text-sm whitespace-nowrap">{fmtDate(d.uat_date)}</td>
+                    <td className="px-5.5 py-3">
                       <FileList
                         files={d.files ?? []}
                         onDownload={(fileId, name) => download(d.id, fileId, name)}
@@ -330,22 +356,24 @@ export default function DocumentsPage() {
                     {admin && (
                       <td className="px-2.5 py-3">
                         <div className="flex items-center justify-center gap-1">
-                          <Link
-                            href={`/documents/${d.id}/edit`}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-brand-50 hover:text-brand-700"
-                            title="แก้ไข"
-                          >
-                            <Pencil size={15} />
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => onDelete(d.id, d.company_name || d.code)}
-                            disabled={delMut.isPending}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
-                            title="ลบ"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          <Tooltip label="แก้ไข">
+                            <Link
+                              href={`/documents/${d.id}/edit`}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-brand-50 hover:text-brand-700"
+                            >
+                              <Pencil size={15} />
+                            </Link>
+                          </Tooltip>
+                          <Tooltip label="ลบ">
+                            <button
+                              type="button"
+                              onClick={() => onDelete(d.id, d.company_name || d.code)}
+                              disabled={delMut.isPending}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </Tooltip>
                         </div>
                       </td>
                     )}
@@ -414,6 +442,260 @@ export default function DocumentsPage() {
   );
 }
 
+// Two-pane filter popup (variant B): left = field list, right = value control for
+// the selected field. Reuses the SAME filters/dateFilters state as the per-column
+// header popovers, so both stay in sync.
+function FilterButton({
+  columns,
+  distinctByCol,
+  filters,
+  dateFilters,
+  totalActive,
+  onChangeSelected,
+  onChangeRange,
+  onClearAll,
+}: {
+  columns: Column[];
+  distinctByCol: Record<string, string[]>;
+  filters: Record<string, string[]>;
+  dateFilters: Record<string, DateRange>;
+  totalActive: number;
+  onChangeSelected: (key: string, vals: string[]) => void;
+  onChangeRange: (key: string, r: DateRange) => void;
+  onClearAll: () => void;
+}) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [activeKey, setActiveKey] = useState<string>(columns[0]?.key ?? "");
+  const [q, setQ] = useState("");
+
+  const PANEL_W = 400;
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    const left = Math.max(8, Math.min(r.right - PANEL_W, window.innerWidth - PANEL_W - 8));
+    setPos({ top: r.bottom + 6, left });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || popRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    // Close on page/table scroll (the fixed popup would detach from the button),
+    // but NOT when scrolling inside the popup's own lists (left field list / value list).
+    function onScroll(e: Event) {
+      if (popRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    }
+    function onResize() {
+      setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [open]);
+
+  useEffect(() => setQ(""), [activeKey]);
+
+  const activeCol = columns.find((c) => c.key === activeKey) ?? columns[0];
+  const fieldCount = (col: Column) => {
+    if (col.date) {
+      const r = dateFilters[col.key];
+      return r && (r.from || r.to) ? 1 : 0;
+    }
+    return filters[col.key]?.length ?? 0;
+  };
+
+  const opts = distinctByCol[activeCol.key] ?? [];
+  const shown = opts.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase()));
+  const sel = filters[activeCol.key] ?? [];
+  const range = dateFilters[activeCol.key] ?? { from: "", to: "" };
+
+  function toggleVal(v: string) {
+    onChangeSelected(activeCol.key, sel.includes(v) ? sel.filter((x) => x !== v) : [...sel, v]);
+  }
+
+  return (
+    <div className="relative">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-colors",
+          totalActive > 0
+            ? "border-brand-500 bg-brand-50 text-brand-700"
+            : "border-slate-200 text-slate-600 hover:bg-slate-50"
+        )}
+      >
+        <Filter size={15} className={totalActive > 0 ? "fill-brand-600" : ""} />
+
+        {totalActive > 0 && (
+          <span className="text-[11px] leading-none bg-brand-600 text-white rounded-full px-1.5 py-0.5">
+            {totalActive}
+          </span>
+        )}
+      </button>
+
+      {open && pos && (
+        <div
+          ref={popRef}
+          style={{ position: "fixed", top: pos.top, left: pos.left, width: PANEL_W }}
+          className="z-50 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden text-left font-normal normal-case"
+        >
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-100">
+            <span className="text-sm font-semibold text-slate-700">ตัวกรอง</span>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-slate-400 hover:text-slate-600"
+              aria-label="ปิด"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="flex">
+            <div className="w-[148px] shrink-0 border-r border-slate-100 bg-slate-50/60 py-1 max-h-[300px] overflow-y-auto">
+              {columns.map((col) => {
+                const n = fieldCount(col);
+                const isActive = col.key === activeCol.key;
+                return (
+                  <button
+                    key={col.key}
+                    type="button"
+                    onClick={() => setActiveKey(col.key)}
+                    className={cn(
+                      "w-full flex items-center justify-between gap-1 px-3.5 py-2 text-xs text-left transition-colors",
+                      isActive
+                        ? "bg-white text-brand-700 font-medium"
+                        : "text-slate-600 hover:bg-white/70"
+                    )}
+                  >
+                    <span className="truncate">{col.label}</span>
+                    {n > 0 && (
+                      <span className="text-[10px] leading-none bg-brand-100 text-brand-700 rounded-full px-1.5 py-0.5 shrink-0">
+                        {n}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex-1 min-w-0 p-3">
+              <div className="text-xs text-slate-400 mb-2">เลือกค่า · {activeCol.label}</div>
+              {activeCol.date ? (
+                <div className="space-y-2">
+                  <label className="block">
+                    <span className="text-[11px] text-slate-500">ตั้งแต่วันที่</span>
+                    <div className="mt-0.5">
+                      <DatePicker
+                        value={range.from}
+                        max={range.to || undefined}
+                        onChange={(v) => onChangeRange(activeCol.key, { ...range, from: v })}
+                      />
+                    </div>
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] text-slate-500">ถึงวันที่</span>
+                    <div className="mt-0.5">
+                      <DatePicker
+                        value={range.to}
+                        min={range.from || undefined}
+                        onChange={(v) => onChangeRange(activeCol.key, { ...range, to: v })}
+                      />
+                    </div>
+                  </label>
+                  {(range.from || range.to) && (
+                    <button
+                      type="button"
+                      onClick={() => onChangeRange(activeCol.key, { from: "", to: "" })}
+                      className="w-full inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-50"
+                    >
+                      <X size={11} /> ล้างช่วงวันที่
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {opts.length > 8 && (
+                    <input
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="ค้นหาค่า..."
+                      className="w-full mb-2 rounded-lg border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:border-brand-400"
+                    />
+                  )}
+                  <div className="flex items-center justify-between px-0.5 mb-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => onChangeSelected(activeCol.key, opts)}
+                      className="text-slate-500 hover:text-brand-700"
+                    >
+                      เลือกทั้งหมด
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onChangeSelected(activeCol.key, [])}
+                      className="text-slate-500 hover:text-brand-700"
+                    >
+                      ล้าง
+                    </button>
+                  </div>
+                  <div className="max-h-52 overflow-y-auto pr-0.5">
+                    {shown.map((o) => (
+                      <label
+                        key={o}
+                        className="flex items-center gap-2 px-1 py-1 rounded hover:bg-slate-50 cursor-pointer text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={sel.includes(o)}
+                          onChange={() => toggleVal(o)}
+                          className="accent-brand-600"
+                        />
+                        <span className="truncate">{o}</span>
+                      </label>
+                    ))}
+                    {shown.length === 0 && (
+                      <div className="text-xs text-slate-400 px-1 py-2">ไม่พบค่า</div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-t border-slate-100">
+            {totalActive > 0 ? (
+              <button
+                type="button"
+                onClick={onClearAll}
+                className="inline-flex items-center gap-1 text-xs text-rose-600 hover:underline"
+              >
+                <X size={12} /> ล้างทั้งหมด
+              </button>
+            ) : (
+              <span className="text-xs text-slate-400">กรองอัตโนมัติเมื่อเลือก</span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ColumnHeader({
   col,
   options,
@@ -460,16 +742,20 @@ function ColumnHeader({
       if (btnRef.current?.contains(t) || popRef.current?.contains(t)) return;
       onClose();
     }
-    function onScrollOrResize() {
+    function onScroll(e: Event) {
+      if (popRef.current?.contains(e.target as Node)) return;
+      onClose();
+    }
+    function onResize() {
       onClose();
     }
     document.addEventListener("mousedown", onDoc);
-    window.addEventListener("resize", onScrollOrResize);
-    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       document.removeEventListener("mousedown", onDoc);
-      window.removeEventListener("resize", onScrollOrResize);
-      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open, onClose]);
 
@@ -482,26 +768,27 @@ function ColumnHeader({
 
   return (
     <th className={cn("px-2.5 py-3 font-semibold", col.center && "text-center")}>
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={onToggleOpen}
-        className={cn(
-          "inline-flex items-center gap-1 rounded px-1 -mx-1 py-0.5 hover:text-brand-700 hover:bg-brand-100/60 transition-colors",
-          (active || sortDir) && "text-brand-700"
-        )}
-        title="กรอง / เรียงลำดับ"
-      >
-        <span>{col.label}</span>
-        {sortDir === "asc" && <ArrowUp size={12} />}
-        {sortDir === "desc" && <ArrowDown size={12} />}
-        <Filter size={11} className={active ? "opacity-100 fill-brand-600" : "opacity-40"} />
-        {active && !isDate && (
-          <span className="text-[10px] leading-none bg-brand-600 text-white rounded-full px-1 py-0.5">
-            {selected.length}
-          </span>
-        )}
-      </button>
+      <Tooltip label="กรอง / เรียงลำดับ">
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={onToggleOpen}
+          className={cn(
+            "inline-flex items-center gap-1 rounded px-1 -mx-1 py-0.5 hover:text-brand-700 hover:bg-brand-100/60 transition-colors",
+            (active || sortDir) && "text-brand-700"
+          )}
+        >
+          <span>{col.label}</span>
+          {sortDir === "asc" && <ArrowUp size={12} />}
+          {sortDir === "desc" && <ArrowDown size={12} />}
+          <Filter size={11} className={active ? "opacity-100 fill-brand-600" : "opacity-40"} />
+          {active && !isDate && (
+            <span className="text-[10px] leading-none bg-brand-600 text-white rounded-full px-1 py-0.5">
+              {selected.length}
+            </span>
+          )}
+        </button>
+      </Tooltip>
 
       {open && pos && (
         <div
@@ -540,23 +827,23 @@ function ColumnHeader({
             <div className="space-y-2">
               <label className="block">
                 <span className="text-[11px] text-slate-500">ตั้งแต่วันที่</span>
-                <input
-                  type="date"
-                  value={range.from}
-                  max={range.to || undefined}
-                  onChange={(e) => onChangeRange({ ...range, from: e.target.value })}
-                  className="w-full mt-0.5 rounded-lg border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:border-brand-400"
-                />
+                <div className="mt-0.5">
+                  <DatePicker
+                    value={range.from}
+                    max={range.to || undefined}
+                    onChange={(v) => onChangeRange({ ...range, from: v })}
+                  />
+                </div>
               </label>
               <label className="block">
                 <span className="text-[11px] text-slate-500">ถึงวันที่</span>
-                <input
-                  type="date"
-                  value={range.to}
-                  min={range.from || undefined}
-                  onChange={(e) => onChangeRange({ ...range, to: e.target.value })}
-                  className="w-full mt-0.5 rounded-lg border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:border-brand-400"
-                />
+                <div className="mt-0.5">
+                  <DatePicker
+                    value={range.to}
+                    min={range.from || undefined}
+                    onChange={(v) => onChangeRange({ ...range, to: v })}
+                  />
+                </div>
               </label>
               {(range.from || range.to) && (
                 <button
@@ -630,23 +917,23 @@ function AckButton({
 }) {
   if (locked) {
     return (
-      <div
-        className="inline-flex w-9 h-9 items-center justify-center rounded-full cursor-default bg-emerald-600 text-white"
-        title={byMe ? "รับทราบแล้ว โดยคุณ" : `รับทราบแล้วโดย ${byName ?? "-"}`}
-      >
-        <CheckCircle2 size={18} />
-      </div>
+      <Tooltip label={byMe ? "รับทราบแล้ว โดยคุณ" : `รับทราบแล้วโดย ${byName ?? "-"}`}>
+        <div className="inline-flex w-9 h-9 items-center justify-center rounded-full cursor-default bg-emerald-600 text-white">
+          <CheckCircle2 size={18} />
+        </div>
+      </Tooltip>
     );
   }
   return (
-    <button
-      onClick={onClick}
-      disabled={pending}
-      className="inline-flex w-9 h-9 items-center justify-center rounded-full border transition bg-white text-slate-500 border-slate-300 hover:border-brand-500 hover:text-brand-700 hover:bg-brand-50 disabled:opacity-60"
-      title="คลิกเพื่อกดรับทราบ"
-    >
-      <Check size={18} />
-    </button>
+    <Tooltip label="คลิกเพื่อกดรับทราบ">
+      <button
+        onClick={onClick}
+        disabled={pending}
+        className="inline-flex w-9 h-9 items-center justify-center rounded-full border transition bg-white text-slate-500 border-slate-300 hover:border-green-500 hover:text-green-700 hover:bg-green-50 disabled:opacity-60"
+      >
+        <Check size={18} />
+      </button>
+    </Tooltip>
   );
 }
 
@@ -658,9 +945,9 @@ function StatusBadge({ status }: { status?: string }) {
   if (!status) return <span className="text-slate-300 text-xs">-</span>;
   const cls =
     {
-      Pending: "bg-amber-100 text-amber-800 border border-amber-300",
-      Passed: "bg-emerald-100 text-emerald-800 border border-emerald-300",
-      Failed: "bg-rose-100 text-rose-800 border border-rose-300",
+      Pending: "bg-amber-100 text-amber-800 border border-amber-800",
+      Passed: "bg-emerald-100 text-emerald-800 border border-emerald-800",
+      Failed: "bg-rose-100 text-rose-800 border border-rose-800",
     }[status] ?? "bg-slate-200 text-slate-700 border border-slate-300";
   return (
     <span className={cn("inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold", cls)}>
@@ -673,9 +960,9 @@ function TypeBadge({ type }: { type?: string }) {
   if (!type) return <span className="text-slate-300 text-xs">-</span>;
   const cls =
     {
-      Standard: "bg-blue-100 text-blue-700 border border-blue-300",
-      Modify: "bg-amber-100 text-amber-800 border border-amber-300",
-      "Add-on": "bg-indigo-100 text-indigo-800 border border-indigo-300",
+      Standard: "bg-[#E7F1FF] text-[#2563EB] border border-[#2563EB]",
+      Modify: "bg-[#ECFDF5] text-[#059669] border border-[#059669]",
+      "Add-on": "bg-[#F3E8FF] text-[#7C3AED] border border-[#7C3AED]",
     }[type] ?? "bg-slate-200 text-slate-700 border border-slate-300";
   return (
     <span className={cn("inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold", cls)}>
@@ -697,16 +984,16 @@ function FileList({
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       {files.map((f) => (
-        <button
-          key={f.id}
-          type="button"
-          onClick={() => onDownload(f.id, f.name)}
-          title={`${f.name}${f.kind && f.kind !== "ATTACHMENT" ? ` · ${f.kind}` : ""}`}
-          aria-label={`ดาวน์โหลด ${f.name}`}
-          className="shrink-0 rounded-md transition-transform hover:scale-110"
-        >
-          <FileTypeIcon type={fileExtType(f.name)} />
-        </button>
+        <Tooltip key={f.id} label={`${f.name}${f.kind && f.kind !== "ATTACHMENT" ? ` · ${f.kind}` : ""}`}>
+          <button
+            type="button"
+            onClick={() => onDownload(f.id, f.name)}
+            aria-label={`ดาวน์โหลด ${f.name}`}
+            className="shrink-0 rounded-md transition-transform hover:scale-110"
+          >
+            <FileTypeIcon type={fileExtType(f.name)} />
+          </button>
+        </Tooltip>
       ))}
     </div>
   );

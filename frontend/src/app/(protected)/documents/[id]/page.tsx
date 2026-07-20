@@ -8,6 +8,7 @@ import { documentApi } from "@/lib/api/endpoints";
 import { Avatar } from "@/components/Avatar";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
+import { Tooltip } from "@/components/Tooltip";
 import { cn, saveBlob } from "@/lib/utils";
 import { MusicLoader } from "@/components/MusicLoader";
 
@@ -66,12 +67,15 @@ export default function DocumentDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/documents"
-        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-slate-300 bg-white text-sm font-medium text-slate-600 shadow-sm hover:text-brand-700 hover:border-brand-400 hover:bg-brand-50 transition-colors"
-      >
-        <ArrowLeft size={15} /> กลับไปหน้ารายการเอกสาร
-      </Link>
+      <Tooltip label="กลับไปหน้ารายการเอกสาร">
+        <Link
+          href={`/documents`}
+          aria-label="กลับไปหน้ารายการเอกสาร"
+          className="w-10 h-10 rounded-full border border-slate-300 bg-white flex items-center justify-center text-slate-600 shadow-sm hover:text-brand-700 hover:border-brand-400 hover:bg-brand-50 transition-colors shrink-0"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+      </Tooltip>
 
       <div className="card p-6 bg-gradient-to-br from-white to-brand-50/50">
         <div className="flex items-start justify-between gap-6">
@@ -107,18 +111,17 @@ export default function DocumentDetailPage() {
             )}
           </div>
           {locked ? (
-            <div
-              className="inline-flex flex-col items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium border shrink-0 bg-emerald-600 text-white border-emerald-600 cursor-default"
-              title={acknowledged_by_me ? "คุณเป็นผู้รับทราบ" : `รับทราบโดย ${acker?.full_name}`}
-            >
-              <div className="inline-flex items-center gap-2">
-                <CheckCircle2 size={15} />
-                รับทราบแล้ว
+            <Tooltip label={acknowledged_by_me ? "คุณเป็นผู้รับทราบ" : `รับทราบโดย ${acker?.full_name ?? "-"}`}>
+              <div className="inline-flex flex-col items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium border shrink-0 bg-emerald-600 text-white border-emerald-600 cursor-default">
+                <div className="inline-flex items-center gap-2">
+                  <CheckCircle2 size={15} />
+                  รับทราบแล้ว
+                </div>
+                <div className="text-[11px] text-white/85 font-normal">
+                  {acknowledged_by_me ? "โดยคุณ" : `โดย ${acker?.full_name ?? "-"}`}
+                </div>
               </div>
-              <div className="text-[11px] text-white/85 font-normal">
-                {acknowledged_by_me ? "โดยคุณ" : `โดย ${acker?.full_name ?? "-"}`}
-              </div>
-            </div>
+            </Tooltip>
           ) : (
             <button
               onClick={onAck}
@@ -393,9 +396,9 @@ function StatusPill({ status }: { status?: string }) {
       Replaced: "bg-slate-100 text-slate-500",
       Archived: "bg-slate-100 text-slate-500",
       // UAT/UAI type
-      Standard: "bg-slate-100 text-slate-700",
-      Modify: "bg-amber-50 text-amber-700",
-      "Add-on": "bg-indigo-50 text-indigo-700",
+      Standard: "bg-[#E7F1FF] text-[#2563EB] border border-[#2563EB]",
+      Modify: "bg-[#ECFDF5] text-[#059669] border border-[#059669]",
+      "Add-on": "bg-[#F3E8FF] text-[#7C3AED] border border-[#7C3AED]",
     }[status] ?? "bg-slate-100 text-slate-600";
   return <span className={cn("inline-block rounded px-2 py-0.5 text-xs", color)}>{status}</span>;
 }

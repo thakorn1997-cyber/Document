@@ -1,86 +1,109 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { User, Mail, Building2, Briefcase, ShieldCheck } from "lucide-react";
-import { authApi } from "@/lib/api/endpoints";
+import { FileText, ShieldCheck, Building2 } from "lucide-react";
+import { authApi, documentApi } from "@/lib/api/endpoints";
 import { AvatarUploader } from "@/components/AvatarUploader";
 import { MusicLoader } from "@/components/MusicLoader";
-import { cn } from "@/lib/utils";
 
 export default function ProfilePage() {
   const meQ = useQuery({ queryKey: ["me"], queryFn: authApi.me });
+  // Same key + queryFn shape as dashboard/documents/reports — shares the cache;
+  // must keep the full {data, meta} response (see the documents-page cache note).
+  const docsQ = useQuery({
+    queryKey: ["documents", "all"],
+    queryFn: documentApi.listAll,
+    staleTime: 30_000,
+  });
   const isAdmin = meQ.data?.roles?.some((r) => r === "SystemAdmin" || r === "admin") ?? false;
+
+  const stats = useMemo(() => {
+    const docs = docsQ.data?.data ?? [];
+    const meId = meQ.data?.id;
+    return {
+      mine: meId ? docs.filter((d) => d.owner_user_id === meId).length : 0,
+      acked: docs.filter((d) => d.acknowledged_by_me).length,
+    };
+  }, [docsQ.data, meQ.data?.id]);
 
   if (!meQ.data) return <MusicLoader />;
   const u = meQ.data;
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">โปรไฟล์</h1>
         <p className="text-sm text-slate-500 mt-1">จัดการรูปโปรไฟล์และดูข้อมูลของคุณ</p>
       </div>
 
-      <section className="card p-6">
-        <h2 className="section-title mb-4">รูปโปรไฟล์</h2>
-        <AvatarUploader userId={u.id} name={u.full_name} avatarPath={u.avatar_path} />
-      </section>
-
-      <section className="card p-6">
-        <h2 className="section-title mb-4">ข้อมูลส่วนตัว</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <InfoRow icon={User} label="ชื่อ-สกุล" value={u.full_name} />
-          <InfoRow icon={Mail} label="Email" value={u.email} mono />
-          <InfoRow icon={User} label="Username" value={u.username} mono />
-          <InfoRow
-            icon={ShieldCheck}
-            label="Role"
-            value={isAdmin ? "Admin" : "User"}
-            badgeCls={isAdmin ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700"}
+      {/* Hero banner (แบบ 6) — solid brand tile, same visual language as the KPI cards */}
+      <section className="card overflow-hidden">
+        <div className="relative overflow-hidden bg-brand-700 px-6 py-6">
+          <FileText
+            size={110}
+            aria-hidden
+            className="absolute -right-3 -bottom-6 text-white/10 pointer-events-none"
           />
-        </div>
-      </section>
+          {/* Balanced 3-part row: avatar (buttons stacked under it) | name block | stats */}
+          <div className="relative flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-left gap-5 sm:gap-6">
+            <AvatarUploader
+              userId={u.id}
+              name={u.full_name}
+              avatarPath={u.avatar_path}
+              variant="hero"
+            />
 
-      <section className="card p-6">
-        <h2 className="section-title mb-4">แผนก / ระดับ</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-medium text-slate-600 flex items-center gap-1">
-              <Building2 size={12} /> แผนก
-            </label>
-            <div className="mt-1.5 flex flex-wrap gap-2">
-              {u.departments?.length ? (
-                u.departments.map((d) => (
+            <div className="flex-1 min-w-0">
+              <div className="text-xl font-bold text-white tracking-tight">{u.full_name}</div>
+              <div className="text-sm text-brand-100 mt-1 truncate">
+                {[u.position?.name, u.departments?.[0]?.code, u.email].filter(Boolean).join(" · ")}
+              </div>
+              <div className="flex flex-wrap justify-center sm:justify-start gap-1.5 mt-3">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-0.5 text-xs font-medium text-brand-800">
+                  <ShieldCheck size={12} />
+                  {isAdmin ? "Admin Access" : "User Access"}
+                </span>
+                {u.departments?.map((d) => (
                   <span
                     key={d.id}
-                    className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 rounded px-2 py-1 text-sm"
+                    className="inline-flex items-center gap-1 rounded-full bg-white/15 border border-white/25 px-2.5 py-0.5 text-xs font-medium text-white"
                   >
-                    <span className="font-mono text-xs text-slate-500">{d.code}</span>
-                    <span>{d.name_th}</span>
+                    <Building2 size={11} />
+                    {d.code}
                   </span>
-                ))
-              ) : (
-                <span className="text-slate-400 text-sm">ยังไม่ได้ระบุ</span>
-              )}
+                ))}
+              </div>
             </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600 flex items-center gap-1">
-              <Briefcase size={12} /> ระดับ / ตำแหน่ง
-            </label>
-            <div className="mt-1.5 text-sm">
-              {u.position ? (
-                <span className="inline-flex items-center gap-2 bg-slate-100 text-slate-700 rounded px-2 py-1">
-                  <span className="font-mono text-xs text-slate-500">{u.position.code}</span>
-                  <span>{u.position.name}</span>
-                </span>
-              ) : (
-                <span className="text-slate-400">— (ต้องให้ admin ระบุใน Settings)</span>
-              )}
+
+            {/* Personal document stats — computed from the shared documents cache */}
+            <div className="flex gap-3 shrink-0">
+              <HeroStat value={stats.mine} label="อัปโหลดของฉัน" />
+              <HeroStat value={stats.acked} label="รับทราบแล้ว" />
             </div>
           </div>
         </div>
-        <p className="text-xs text-slate-400 mt-4">
+
+        {/* Detail fields */}
+        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="ชื่อ-สกุล" value={u.full_name} />
+          <Field label="Username" value={u.username} mono />
+          <Field label="Email" value={u.email} mono />
+          <Field
+            label="ตำแหน่ง / ระดับ"
+            value={u.position ? `${u.position.code} · ${u.position.name}` : "— (ต้องให้ admin ระบุใน Settings)"}
+          />
+          <Field
+            label="แผนก"
+            value={
+              u.departments?.length
+                ? u.departments.map((d) => `${d.code} · ${d.name_th}`).join(", ")
+                : "ยังไม่ได้ระบุ"
+            }
+            full
+          />
+        </div>
+        <p className="px-5 pb-4 text-xs text-slate-400">
           หากต้องการเปลี่ยนแผนก, ตำแหน่ง, หรือ Role ต้องติดต่อ Admin
         </p>
       </section>
@@ -88,31 +111,30 @@ export default function ProfilePage() {
   );
 }
 
-function InfoRow({
-  icon: Icon,
+function HeroStat({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="relative rounded-xl bg-white/10 border border-white/20 px-5 py-3 text-center min-w-[110px]">
+      <div className="text-2xl font-bold text-white tabular-nums">{value.toLocaleString()}</div>
+      <div className="text-[11px] text-brand-100 mt-0.5 whitespace-nowrap">{label}</div>
+    </div>
+  );
+}
+
+function Field({
   label,
   value,
   mono,
-  badgeCls,
+  full,
 }: {
-  icon: React.ElementType;
   label: string;
   value: string;
   mono?: boolean;
-  badgeCls?: string;
+  full?: boolean;
 }) {
   return (
-    <div>
-      <label className="text-xs font-medium text-slate-600 flex items-center gap-1">
-        <Icon size={12} /> {label}
-      </label>
-      <div className="mt-1.5">
-        {badgeCls ? (
-          <span className={cn("inline-block rounded px-2 py-0.5 text-sm", badgeCls)}>{value}</span>
-        ) : (
-          <div className={cn("text-slate-800", mono && "font-mono text-sm")}>{value}</div>
-        )}
-      </div>
+    <div className={`bg-slate-50 rounded-lg px-3.5 py-2.5 ${full ? "sm:col-span-2" : ""}`}>
+      <div className="text-[11px] text-slate-500">{label}</div>
+      <div className={`text-sm text-slate-800 mt-0.5 ${mono ? "font-mono" : ""}`}>{value}</div>
     </div>
   );
 }

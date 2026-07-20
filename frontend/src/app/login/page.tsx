@@ -79,23 +79,41 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-glow-radial">
-      <div className="w-full max-w-md">
-        {/* Brand header */}
-        <div className="flex flex-col items-center text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg shadow-slate-300/50 ring-1 ring-slate-200/70">
-            <Logo className="w-full h-full" />
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-6 bg-[#eef4fc]">
+      {/* Gradient-mesh blobs (แบบ 2 — glassmorphism). aria-hidden: ตกแต่งล้วน */}
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute -top-40 -left-24 w-[480px] h-[480px] rounded-full animate-float"
+          style={{ background: "radial-gradient(circle, rgba(125,211,252,0.75) 0%, transparent 65%)" }}
+        />
+        <div
+          className="absolute -bottom-52 -right-28 w-[520px] h-[520px] rounded-full animate-float"
+          style={{
+            background: "radial-gradient(circle, rgba(196,181,253,0.55) 0%, transparent 65%)",
+            animationDelay: "-2.5s",
+          }}
+        />
+        <div
+          className="absolute -bottom-32 left-1/3 w-[380px] h-[380px] rounded-full animate-float"
+          style={{
+            background: "radial-gradient(circle, rgba(153,246,228,0.5) 0%, transparent 65%)",
+            animationDelay: "-5s",
+          }}
+        />
+      </div>
+
+      <div className="relative w-full max-w-md">
+        <div className="bg-white/60 backdrop-blur-2xl border border-white/80 rounded-3xl shadow-[0_30px_70px_-25px_rgba(2,132,199,0.35)] p-7 sm:p-9 space-y-5">
+          {/* Brand header — ย้ายเข้ามาในการ์ดกระจกตามดีไซน์แบบ 2 */}
+          <div className="flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-lg shadow-brand-500/30 ring-1 ring-white/80">
+              <Logo className="w-full h-full" />
+            </div>
+            <h2 className="mt-4 text-xl font-bold text-slate-900">ยินดีต้อนรับกลับ</h2>
+            <p className="text-[13px] text-slate-500 mt-1">
+              Project Document · ระบบจัดการเอกสาร UAT / UAI
+            </p>
           </div>
-          <div className="mt-3 font-semibold text-lg text-slate-900">Project Document</div>
-          <div className="text-xs text-slate-500">ระบบจัดการเอกสาร UAT / UAI</div>
-        </div>
-
-        <div className="mb-6 text-center">
-          <h2 className="text-2xl font-bold text-slate-900">ยินดีต้อนรับกลับ</h2>
-          <p className="text-sm text-slate-500 mt-1.5">เข้าสู่ระบบเพื่อจัดการเอกสารของคุณ</p>
-        </div>
-
-        <div className="card-glow p-6 sm:p-7 space-y-5">
           {!methods ? (
             <MusicLoader label="กำลังเตรียมการเข้าสู่ระบบ..." className="py-8" />
           ) : (
@@ -105,7 +123,7 @@ export default function LoginPage() {
                   <div>
                     <label className="text-sm font-medium text-slate-700">Username</label>
                     <input
-                      className="input mt-1.5 h-11"
+                      className="input mt-1.5 h-11 bg-white/70 border-slate-200/80 focus:bg-white"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       required
@@ -121,7 +139,7 @@ export default function LoginPage() {
                     </div>
                     <input
                       type="password"
-                      className="input mt-1.5 h-11"
+                      className="input mt-1.5 h-11 bg-white/70 border-slate-200/80 focus:bg-white"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -139,7 +157,7 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="btn-primary w-full h-11 flex items-center justify-center gap-2 group"
+                    className="w-full h-11 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 hover:from-brand-600 hover:to-brand-700 disabled:opacity-60 text-white font-semibold text-sm shadow-lg shadow-brand-500/40 hover:shadow-brand-500/50 transition-all flex items-center justify-center gap-2 group"
                   >
                     {loading ? (
                       "กำลังเข้าสู่ระบบ..."
@@ -172,16 +190,16 @@ export default function LoginPage() {
                 <>
                   {localEnabled && (
                     <div className="flex items-center gap-3">
-                      <div className="flex-1 h-px bg-slate-200" />
+                      <div className="flex-1 h-px bg-slate-300/60" />
                       <span className="text-xs text-slate-400 uppercase tracking-widest">หรือ</span>
-                      <div className="flex-1 h-px bg-slate-200" />
+                      <div className="flex-1 h-px bg-slate-300/60" />
                     </div>
                   )}
 
                   <button
                     onClick={onAzure}
                     disabled={azureLoading}
-                    className="w-full h-11 border border-slate-300 hover:border-brand-500 hover:bg-brand-50/30 disabled:opacity-60 text-slate-800 font-medium rounded-lg text-sm flex items-center justify-center gap-2.5 transition-all"
+                    className="w-full h-11 rounded-xl bg-white/80 hover:bg-white border border-slate-200/80 hover:border-brand-400 disabled:opacity-60 text-slate-800 font-medium text-sm flex items-center justify-center gap-2.5 transition-all shadow-sm"
                   >
                     <MicrosoftLogo />
                     {azureLoading ? "กำลังเชื่อมต่อ Microsoft..." : "เข้าสู่ระบบด้วย Microsoft"}
@@ -192,11 +210,11 @@ export default function LoginPage() {
           )}
         </div>
 
-        <p className="text-xs text-slate-400 text-center mt-6">
+        <p className="text-xs text-slate-500 text-center mt-6">
           มีปัญหาการเข้าใช้งาน? ติดต่อ Admin ของระบบ
         </p>
 
-        <p className="text-[11px] text-slate-400/80 text-center mt-8">
+        <p className="text-[11px] text-slate-400 text-center mt-8">
           © 2026 Project Document · Internal use only
         </p>
       </div>

@@ -8,6 +8,7 @@ import { Bell, CheckCheck, FileUp, CheckCircle2, BadgeCheck } from "lucide-react
 import { notificationApi, type NotificationItem } from "@/lib/api/endpoints";
 import { tokenStore } from "@/lib/auth/token";
 import { Avatar } from "@/components/Avatar";
+import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/lib/utils";
 
 export function NotificationBell() {
@@ -180,7 +181,9 @@ export function NotificationBell() {
                         </div>
                       </div>
                       {!n.read_at && (
-                        <span className="w-2 h-2 rounded-full bg-brand-500 mt-1.5 shrink-0" title="ยังไม่ได้อ่าน" />
+                        <Tooltip label="ยังไม่ได้อ่าน">
+                          <span className="w-2 h-2 rounded-full bg-brand-500 mt-1.5 shrink-0" />
+                        </Tooltip>
                       )}
                     </button>
                   </li>

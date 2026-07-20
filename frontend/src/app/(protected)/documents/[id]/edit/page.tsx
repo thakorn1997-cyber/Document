@@ -9,6 +9,7 @@ import { documentApi, staffApi, companyApi, authApi, DocumentUpdate } from "@/li
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { DatePicker } from "@/components/DatePicker";
 import { Tooltip } from "@/components/Tooltip";
 import { cn, saveBlob } from "@/lib/utils";
 import { MusicLoader } from "@/components/MusicLoader";
@@ -251,7 +252,7 @@ export default function EditDocumentPage() {
             <button
               type="submit"
               disabled={mut.isPending}
-              className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-lg shadow-sm shadow-brand-500/25 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-blue-600 to-indigo-600 px-[17px] py-[9px] text-sm font-medium text-white shadow-[0_3px_10px_rgba(79,70,229,0.30)] transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-[0_4px_14px_rgba(79,70,229,0.38)] active:scale-[0.98]"
             >
               <Save size={16} />
               {mut.isPending ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
@@ -320,12 +321,7 @@ export default function EditDocumentPage() {
                   />
                 </Field>
                 <Field label="วันที่ติดตั้ง">
-                  <input
-                    type="date"
-                    className="input"
-                    value={installDate}
-                    onChange={(e) => setInstallDate(e.target.value)}
-                  />
+                  <DatePicker value={installDate} onChange={setInstallDate} />
                 </Field>
               </div>
 
@@ -387,9 +383,11 @@ export default function EditDocumentPage() {
                         <FileText size={15} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-slate-800 truncate" title={v.original_file_name}>
-                          {v.original_file_name}
-                        </div>
+                        <Tooltip label={v.original_file_name} className="w-full min-w-0">
+                          <div className="text-sm font-medium text-slate-800 truncate w-full">
+                            {v.original_file_name}
+                          </div>
+                        </Tooltip>
                         <div className="text-xs text-slate-500">
                           <span className="font-mono bg-slate-200 text-slate-600 rounded px-1 text-[10px] mr-1.5">
                             {v.kind === "ATTACHMENT" ? "FILE" : v.kind}
@@ -397,23 +395,25 @@ export default function EditDocumentPage() {
                           {(v.file_size_bytes / 1024).toFixed(1)} KB
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => downloadFile(v.id, v.original_file_name)}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-brand-50 hover:text-brand-700"
-                        title="ดาวน์โหลด"
-                      >
-                        <Download size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDeleteFile(v.id, v.original_file_name)}
-                        disabled={deleteVersionMut.isPending}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
-                        title="ลบไฟล์"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <Tooltip label="ดาวน์โหลด">
+                        <button
+                          type="button"
+                          onClick={() => downloadFile(v.id, v.original_file_name)}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-brand-50 hover:text-brand-700"
+                        >
+                          <Download size={15} />
+                        </button>
+                      </Tooltip>
+                      <Tooltip label="ลบไฟล์">
+                        <button
+                          type="button"
+                          onClick={() => onDeleteFile(v.id, v.original_file_name)}
+                          disabled={deleteVersionMut.isPending}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </Tooltip>
                     </li>
                   ))}
                 </ul>
@@ -579,13 +579,7 @@ function StatusGroup({
 
       <div>
         <div className="text-xs text-slate-500 mb-1.5">วันที่ {label}</div>
-        <input
-          type="date"
-          className="input disabled:cursor-not-allowed disabled:bg-slate-50"
-          value={date}
-          disabled={disabled}
-          onChange={(e) => onDate(e.target.value)}
-        />
+        <DatePicker value={date} disabled={disabled} onChange={onDate} />
       </div>
 
       {disabled && disabledNote && (

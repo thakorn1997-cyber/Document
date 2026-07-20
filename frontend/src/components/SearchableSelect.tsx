@@ -21,6 +21,8 @@ export function SearchableSelect({
   searchable = true,
   creatable = false,
   emptyText = "ไม่พบรายชื่อ",
+  onCreate,
+  createLabel,
 }: {
   value: string;
   onChange: (id: string) => void;
@@ -32,6 +34,14 @@ export function SearchableSelect({
   /** Allow committing the typed text as a new value not present in options. */
   creatable?: boolean;
   emptyText?: string;
+  /**
+   * When provided, the "＋" row calls this instead of committing the raw string —
+   * e.g. to persist a brand-new record (company) and then select it. The parent
+   * is responsible for updating `value` (via its own onChange) after creating.
+   */
+  onCreate?: (name: string) => void;
+  /** Leading verb for the create row (default "ใช้"); pass "เพิ่ม" when onCreate persists. */
+  createLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -104,6 +114,17 @@ export function SearchableSelect({
     setOpen(false);
   }
 
+  // "＋" row: delegate to onCreate (persist + parent selects) when provided,
+  // otherwise commit the raw typed string (legacy creatable behavior).
+  function commitCreate() {
+    if (onCreate) {
+      onCreate(trimmedQuery);
+      setOpen(false);
+    } else {
+      choose(trimmedQuery);
+    }
+  }
+
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -115,7 +136,7 @@ export function SearchableSelect({
       e.preventDefault();
       const opt = filtered[active];
       if (opt) choose(opt.id);
-      else if (showCreate) choose(trimmedQuery);
+      else if (showCreate) commitCreate();
     } else if (e.key === "Escape") {
       e.preventDefault();
       setOpen(false);
@@ -185,12 +206,12 @@ export function SearchableSelect({
               <li>
                 <button
                   type="button"
-                  onClick={() => choose(trimmedQuery)}
+                  onClick={commitCreate}
                   className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 text-brand-700 hover:bg-brand-50 transition-colors"
                 >
                   <Plus size={14} className="shrink-0" />
                   <span className="truncate">
-                    ใช้ &quot;{trimmedQuery}&quot;
+                    {createLabel ?? "เพิ่ม"} &quot;{trimmedQuery}&quot;
                   </span>
                 </button>
               </li>
