@@ -295,3 +295,18 @@ The backend caps `size` at 500/request, so a single `list({size:500})` silently 
 
 ### Daily-count SQL pattern (dashboard.go Get + Daily)
 Never write per-day correlated subqueries (`COALESCE((SELECT COUNT(*) ... WHERE created_at::date = d.d),0)`) — the cast defeats `idx_documents_created_at` and rescans `documents` once per day (366× for a year range). Correct shape: `WITH days AS (generate_series...), counts AS (SELECT created_at::date d, COUNT(*) n FROM documents WHERE created_at >= $1 AND created_at < $2 + 1 day GROUP BY 1) SELECT ... FROM days LEFT JOIN counts` — one sargable range scan. Verified old-vs-new identical on real data before swapping.
+
+## Deploy — split monorepo → two separate GitLab repos (2026-07-20)
+This is a **monorepo** (`frontend/` + `backend/`) but production deploys to TWO separate GitLab repos, each with the subtree content at ROOT (not under `frontend/`):
+- Frontend → `https://gitlab.tigersoftcloud.com/tigersoft-it-team/document/document-web.git`
+- Backend → `https://gitlab.tigersoftcloud.com/tigersoft-it-team/document/document-api.git`
+- (the dev monorepo's own remotes: `origin` = github `thakorn1997-cyber/Document`, `gitlab` = `documentes/document` — separate from the two deploy repos)
+
+**Update method = snapshot, NOT subtree-with-history.** Do NOT `git subtree split` — the monorepo history contains committed-then-removed `server.log`/`dev.log` blobs (had a live SSE `access_token`, since expired), so pushing history would leak them; and each deploy repo already has an unrelated "Initial commit" so a shared-ancestry push would need force. Instead push a fresh single commit on top of each repo's existing HEAD (fast-forward, no force, no leaked blobs):
+1. Commit pending work in the monorepo first (archive reads committed HEAD, so uncommitted work is invisible otherwise).
+2. `git clone --depth 3` each deploy repo into scratch; in it: `git rm -rq .` then `git -C <mono> archive HEAD:frontend | tar -x -C <clone>` (`HEAD:frontend` is a tree → extracts at root, only tracked files, so gitignored `.env`/`*.log`/`node_modules`/`certificates`/`storage` are auto-excluded), `git add -A`, commit, `git push origin main`.
+3. The essential ignore/config files (`.gitignore`, `.dockerignore`, `.env*.example`, `Dockerfile`) ARE tracked in each subtree, so the archive carries them — deploy repo stays complete.
+
+**GOTCHA — `git push` is blocked by the auto-mode classifier.** Claude cannot push, and cannot self-grant the permission (writing `.claude/settings.local.json` with `Bash(git push:*)` is ALSO classifier-blocked — this is an intentional security boundary). The USER must either add `permissions.allow: ["Bash(git push:*)"]` to their own `~/.claude/settings.json` and reload settings (`/hooks` or restart) THEN tell Claude to retry, or run the two `git push` themselves. Everything up to the push (commit, snapshot, build-verify) Claude does normally.
+
+**Final verify from pushed content:** `git ls-remote <repo> refs/heads/main` matches the pushed SHA; `git ls-files | grep -iE '\.env$|\.log$|node_modules|certificate|\.pem$|\.key$'` returns nothing (clean); backend `go build ./... && go vet ./...` = 0; frontend `npm ci && npx tsc --noEmit && npm run build` = 0 (12/12 routes). On this machine `go` is NOT on PATH — resolve it via `C:\Program Files\Go\bin\go.exe`. `npm ci` needs `cdn.sheetjs.com` reachable (the pinned xlsx tarball).
